@@ -8,9 +8,7 @@ import {
   Pressable,
   Animated,
   BackHandler,
-  KeyboardAvoidingView,
   Keyboard,
-  Platform,
   StatusBar,
   Dimensions,
 } from 'react-native';
@@ -22,6 +20,7 @@ import MessageBubble from '../components/chat/MessageBubble';
 import AIDraftSheet from '../components/chat/AIDraftSheet';
 import MediaPickerSheet from '../components/chat/MediaPickerSheet';
 import TemplatesSheet from '../components/chat/TemplatesSheet';
+import useKeyboardInset from '../components/chat/useKeyboardInset';
 
 const MAX_UPLOAD_MB = 10;
 const sizeInMB = (size) => (size.includes('MB') ? parseFloat(size) : parseFloat(size) / 1024);
@@ -217,6 +216,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
   const topInset = Math.max(insets.top, 24);
   const bottomInset = Math.max(insets.bottom, 12);
   const theme = getChannelTheme(ticket.channel);
+  const keyboardInset = useKeyboardInset();
 
   const scrollRef = useRef(null);
   const [messages, setMessages] = useState(() => buildConversation(ticket));
@@ -308,6 +308,11 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
     setReply((cur) => (cur.trim() ? `${cur.trim()}\n\n${body}` : body));
     setTemplate({ title: t.title });
   };
+
+  // Keep the latest message visible when the keyboard opens.
+  useEffect(() => {
+    if (keyboardInset) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+  }, [keyboardInset]);
 
   const togglePanel = useCallback(
     (open) => {
@@ -407,7 +412,8 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
           </TouchableOpacity>
         </View>
 
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Edge-to-edge window: lift the chat above the keyboard ourselves */}
+        <View style={[styles.flex, { paddingBottom: sheet ? 0 : keyboardInset }]}>
           <ScrollView
             ref={scrollRef}
             style={styles.flex}
@@ -474,10 +480,10 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             }}
             onOpenAI={() => openSheet('ai', aiState ? { initialText: reply } : {})}
             onSend={sendReply}
-            bottomInset={bottomInset}
+            bottomInset={keyboardInset && !sheet ? 8 : bottomInset}
             onLayout={(e) => setComposerH(e.nativeEvent.layout.height)}
           />
-        </KeyboardAvoidingView>
+        </View>
 
         {/* Scrim over the chat while the panel is open */}
         <Animated.View

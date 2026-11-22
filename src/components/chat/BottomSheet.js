@@ -1,6 +1,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Keyboard, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import useKeyboardInset from './useKeyboardInset';
 
 const SPRING = { tension: 68, friction: 12, useNativeDriver: true };
 
@@ -19,8 +20,10 @@ const BottomSheet = forwardRef(function BottomSheet(
   const topGap = Math.max(insets.top, 24) + 8;
   const [containerH, setContainerH] = useState(Dimensions.get('window').height);
   const [expanded, setExpandedState] = useState(startExpanded);
+  const keyboardInset = useKeyboardInset();
 
-  const sheetH = containerH - topGap;
+  // Sheet sits on top of the keyboard (edge-to-edge window, no adjustResize).
+  const sheetH = containerH - topGap - keyboardInset;
   const halfH = Math.min(sheetH, Math.round(Dimensions.get('window').height * halfRatio));
   const halfOffset = Math.max(sheetH - halfH, 0);
   const closedOffset = sheetH + 40;
@@ -140,7 +143,7 @@ const BottomSheet = forwardRef(function BottomSheet(
       </Animated.View>
 
       <Animated.View
-        style={[styles.sheet, { top: topGap, transform: [{ translateY }] }]}
+        style={[styles.sheet, { top: topGap, bottom: keyboardInset, transform: [{ translateY }] }]}
       >
         <View {...pan.panHandlers}>
           <View style={styles.handleArea}>
@@ -155,12 +158,12 @@ const BottomSheet = forwardRef(function BottomSheet(
 
         {footer ? (
           <Animated.View
-            style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12), transform: [{ translateY: footerTranslate }] }]}
+            style={[styles.footer, { paddingBottom: keyboardInset ? 12 : Math.max(insets.bottom, 12), transform: [{ translateY: footerTranslate }] }]}
           >
             {typeof footer === 'function' ? footer(api) : footer}
           </Animated.View>
         ) : (
-          <View style={{ height: Math.max(insets.bottom, 12) }} />
+          <View style={{ height: keyboardInset ? 12 : Math.max(insets.bottom, 12) }} />
         )}
       </Animated.View>
     </View>
