@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   Pressable,
   Animated,
@@ -18,6 +17,19 @@ import {
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChannelIcon, { getChannelTheme } from '../components/ChannelIcons';
+import Composer, { AttachMenu } from '../components/chat/Composer';
+import MessageBubble from '../components/chat/MessageBubble';
+import AIDraftSheet from '../components/chat/AIDraftSheet';
+import MediaPickerSheet from '../components/chat/MediaPickerSheet';
+import TemplatesSheet from '../components/chat/TemplatesSheet';
+
+const MAX_UPLOAD_MB = 10;
+const sizeInMB = (size) => (size.includes('MB') ? parseFloat(size) : parseFloat(size) / 1024);
+let attachmentSeq = 0;
+const nowTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 340);
@@ -47,12 +59,6 @@ const SidebarIcon = ({ active }) => (
 const CloseIcon = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path d="M6 6L18 18M18 6L6 18" stroke="#000000" strokeWidth={2} strokeLinecap="round" />
-  </Svg>
-);
-
-const SendIcon = () => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Path d="M4 12L20 4L13 20L11 13L4 12Z" stroke="#FFFFFF" strokeWidth={2} strokeLinejoin="round" />
   </Svg>
 );
 
@@ -219,6 +225,90 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const panelAnim = useRef(new Animated.Value(0)).current;
 
+  // Composer extras
+  const [attachments, setAttachments] = useState([]);
+  const [aiState, setAiState] = useState(null); // { text } once an AI draft is applied
+  const [template, setTemplate] = useState(null); // { title } once a template is inserted
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [sheet, setSheet] = useState(null); // { type: 'ai' | 'photos' | 'videos' | 'templates', initialText? }
+  const [composerH, setComposerH] = useState(70);
+  const sheetRef = useRef(null);
+  const failedOnce = useRef(new Set());
+
+  const firstName = ticket.username.replace('@', '').split(/[\s_]+/)[0];
+  const templateVars = {
+    name: firstName.charAt(0).toUpperCase() + firstName.slice(1),
+    ticket: `#${String(1000 + Number(ticket.id)).padStart(4, '0')}`,
+  };
+
+  const openSheet = (type, extra = {}) => {
+    Keyboard.dismiss();
+    setMenuOpen(false);
+    setSheet({ type, ...extra });
+  };
+
+  const updateAttachment = (key, patch) =>
+    setAttachments((list) => list.map((a) => (a.key === key ? { ...a, ...patch } : a)));
+
+  // Simulated upload: big files fail permanently, one video fails once (retryable).
+  const startUpload = (att) => {
+    const tooLarge = sizeInMB(att.size) > MAX_UPLOAD_MB;
+    const flaky = att.id === 'v2' && !failedOnce.current.has(att.key);
+    const duration = att.type === 'video' ? 1800 : 1000 + Math.random() * 600;
+    att.progress.setValue(0);
+    Animated.timing(att.progress, {
+      toValue: tooLarge ? 0.3 : flaky ? 0.65 : 1,
+      duration: tooLarge ? 500 : flaky ? duration * 0.65 : duration,
+      useNativeDriver: true,
+    }).start(() => {
+      if (tooLarge) updateAttachment(att.key, { status: 'error', retryable: false });
+      else if (flaky) {
+        failedOnce.current.add(att.key);
+        updateAttachment(att.key, { status: 'error', retryable: true });
+      } else updateAttachment(att.key, { status: 'done' });
+    });
+  };
+
+  const addAttachments = (items) => {
+    const created = items.map((item) => ({
+      ...item,
+      key: `att${++attachmentSeq}`,
+      status: 'uploading',
+      retryable: false,
+      progress: new Animated.Value(0),
+    }));
+    setAttachments((list) => [...list, ...created]);
+    created.forEach(startUpload);
+  };
+
+  const retryAttachment = (key) => {
+    const att = attachments.find((a) => a.key === key);
+    if (!att) return;
+    updateAttachment(key, { status: 'uploading' });
+    startUpload(att);
+  };
+
+  const removeAttachment = (key) => setAttachments((list) => list.filter((a) => a.key !== key));
+
+  const onChangeReply = (text) => {
+    setReply(text);
+    if (!text.trim()) {
+      setAiState(null);
+      setTemplate(null);
+    }
+  };
+
+  const applyAiDraft = (text) => {
+    setReply(text);
+    setAiState({ text });
+    setTemplate(null);
+  };
+
+  const insertTemplate = (t, body) => {
+    setReply((cur) => (cur.trim() ? `${cur.trim()}\n\n${body}` : body));
+    setTemplate({ title: t.title });
+  };
+
   const togglePanel = useCallback(
     (open) => {
       Keyboard.dismiss();
@@ -235,20 +325,40 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (panelOpen) togglePanel(false);
+      if (sheet) sheetRef.current?.close();
+      else if (menuOpen) setMenuOpen(false);
+      else if (panelOpen) togglePanel(false);
       else onClose();
       return true;
     });
     return () => sub.remove();
-  }, [onClose, panelOpen, togglePanel]);
+  }, [onClose, panelOpen, togglePanel, sheet, menuOpen]);
 
   const sendReply = () => {
     const text = reply.trim();
-    if (!text) return;
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setMessages((prev) => [...prev, { id: `r${prev.length}`, from: 'agent', text, time, isNew: true }]);
+    const files = attachments.filter((a) => a.status === 'done');
+    if (!text && !files.length) return;
+    const id = `r${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id,
+        from: 'agent',
+        text,
+        time: nowTime(),
+        isNew: true,
+        status: 'sending',
+        attachments: files,
+        aiAssisted: !!aiState,
+        templateTitle: template?.title,
+      },
+    ]);
+    setTimeout(() => setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: 'sent' } : m))), 900);
     setReply('');
+    setAttachments([]);
+    setAiState(null);
+    setTemplate(null);
+    setMenuOpen(false);
     if (status !== 'Open') setStatus('Open');
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
   };
@@ -274,7 +384,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
       <Animated.View style={[styles.flex, { paddingTop: topInset, transform: [{ translateX: chatTranslateX }] }]}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton} hitSlop={8}>
+          <TouchableOpacity accessibilityLabel="Back" onPress={onClose} style={styles.iconButton} hitSlop={8}>
             <BackIcon />
           </TouchableOpacity>
           <FadeInUp progress={progress} index={0} style={styles.headerCenter}>
@@ -292,7 +402,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             </View>
             <StatusPill status={status} />
           </FadeInUp>
-          <TouchableOpacity onPress={() => togglePanel(!panelOpen)} style={styles.iconButton} hitSlop={8}>
+          <TouchableOpacity accessibilityLabel="Ticket info" onPress={() => togglePanel(!panelOpen)} style={styles.iconButton} hitSlop={8}>
             <SidebarIcon active={panelOpen} />
           </TouchableOpacity>
         </View>
@@ -311,24 +421,9 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             </FadeInUp>
 
             {messages.map((m, i) => {
-              const isAgent = m.from === 'agent';
               const prev = messages[i - 1];
-              const grouped = prev && prev.from === m.from;
-              const bubble = (
-                <View style={[styles.bubbleRow, isAgent && styles.bubbleRowRight, grouped && styles.bubbleRowGrouped]}>
-                  <View
-                    style={[
-                      styles.bubble,
-                      isAgent
-                        ? [styles.bubbleAgent, { backgroundColor: theme.solid }]
-                        : [styles.bubbleCustomer, { backgroundColor: theme.soft }],
-                    ]}
-                  >
-                    <Text style={[styles.bubbleText, isAgent && { color: theme.onSolid }]}>{m.text}</Text>
-                    <Text style={[styles.bubbleTime, isAgent && styles.bubbleTimeAgent]}>{m.time}</Text>
-                  </View>
-                </View>
-              );
+              const grouped = prev && prev.from === m.from && !prev.aiAssisted && !prev.templateTitle;
+              const bubble = <MessageBubble message={m} theme={theme} grouped={grouped} />;
               return m.isNew ? (
                 <PopIn key={m.id}>{bubble}</PopIn>
               ) : (
@@ -345,24 +440,43 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             )}
           </ScrollView>
 
-          {/* Reply bar */}
-          <View style={[styles.replyBar, { paddingBottom: bottomInset }]}>
-            <TextInput
-              style={styles.replyInput}
-              placeholder={`Reply via ${ticket.channel}...`}
-              placeholderTextColor="rgba(46, 46, 46, 0.5)"
-              value={reply}
-              onChangeText={setReply}
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, { backgroundColor: theme.solid }, !reply.trim() && styles.sendButtonDisabled]}
-              onPress={sendReply}
-              activeOpacity={0.8}
-            >
-              <SendIcon />
-            </TouchableOpacity>
-          </View>
+          {/* Tap-away layer + attach menu (inside this container so touches register on Android) */}
+          {menuOpen && <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />}
+          <AttachMenu
+            open={menuOpen}
+            bottom={composerH + 8}
+            onPick={(key) => openSheet(key)}
+          />
+
+          <Composer
+            theme={theme}
+            channel={ticket.channel}
+            value={reply}
+            onChangeText={onChangeReply}
+            attachments={attachments}
+            onRemoveAttachment={removeAttachment}
+            onRetryAttachment={retryAttachment}
+            aiState={aiState}
+            onEditAi={() => openSheet('ai', { initialText: reply })}
+            onClearAi={() => {
+              setAiState(null);
+              setReply('');
+            }}
+            template={template}
+            onClearTemplate={() => {
+              setTemplate(null);
+              setReply('');
+            }}
+            menuOpen={menuOpen}
+            onToggleMenu={() => {
+              Keyboard.dismiss();
+              setMenuOpen((o) => !o);
+            }}
+            onOpenAI={() => openSheet('ai', aiState ? { initialText: reply } : {})}
+            onSend={sendReply}
+            bottomInset={bottomInset}
+            onLayout={(e) => setComposerH(e.nativeEvent.layout.height)}
+          />
         </KeyboardAvoidingView>
 
         {/* Scrim over the chat while the panel is open */}
@@ -439,6 +553,37 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
           )}
         </View>
       </Animated.View>
+
+      {/* Bottom sheets */}
+      {sheet?.type === 'ai' && (
+        <AIDraftSheet
+          ref={sheetRef}
+          ticket={ticket}
+          messages={messages}
+          theme={theme}
+          initialText={sheet.initialText}
+          onApply={applyAiDraft}
+          onClosed={() => setSheet(null)}
+        />
+      )}
+      {(sheet?.type === 'photos' || sheet?.type === 'videos') && (
+        <MediaPickerSheet
+          ref={sheetRef}
+          initialTab={sheet.type}
+          color={theme.solid}
+          onAttach={addAttachments}
+          onClosed={() => setSheet(null)}
+        />
+      )}
+      {sheet?.type === 'templates' && (
+        <TemplatesSheet
+          ref={sheetRef}
+          vars={templateVars}
+          color={theme.solid}
+          onInsert={insertTemplate}
+          onClosed={() => setSheet(null)}
+        />
+      )}
     </View>
   );
 }
@@ -514,25 +659,6 @@ const styles = StyleSheet.create({
     color: 'rgba(93, 92, 93, 0.6)',
     marginBottom: 12,
   },
-  bubbleRow: { flexDirection: 'row', marginTop: 12 },
-  bubbleRowGrouped: { marginTop: 4 },
-  bubbleRowRight: { justifyContent: 'flex-end' },
-  bubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  bubbleCustomer: { borderBottomLeftRadius: 6 },
-  bubbleAgent: { borderBottomRightRadius: 6 },
-  bubbleText: { fontSize: 14, lineHeight: 21, color: '#292929' },
-  bubbleTime: {
-    fontSize: 11,
-    color: 'rgba(41, 41, 41, 0.5)',
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  bubbleTimeAgent: { color: 'rgba(255, 255, 255, 0.75)' },
   systemNote: {
     alignSelf: 'center',
     textAlign: 'center',
@@ -545,38 +671,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     overflow: 'hidden',
   },
-  replyBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(46, 46, 46, 0.08)',
-    backgroundColor: '#FFFFFF',
-  },
-  replyInput: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#EDEDED',
-    backgroundColor: 'rgba(234, 234, 234, 0.2)',
-    paddingHorizontal: 16,
-    paddingTop: 11,
-    paddingBottom: 11,
-    fontSize: 14,
-    color: '#000000',
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: { opacity: 0.4 },
   scrim: { backgroundColor: '#000000' },
   panel: {
     position: 'absolute',
