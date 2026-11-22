@@ -51,3 +51,15 @@ export const ChannelIcon = ({ channel, size = 20 }) => {
 };
 
 export default ChannelIcon;
+
+// Brand colour per platform, used to tint chat bubbles and accents.
+export const CHANNEL_THEME = {
+  Twitter: { solid: '#14171A', soft: '#EEF0F2', onSolid: '#FFFFFF' },
+  Facebook: { solid: '#1877F2', soft: '#E7F0FE', onSolid: '#FFFFFF' },
+  'FB Messenger': { solid: '#0084FF', soft: '#E5F2FF', onSolid: '#FFFFFF' },
+  Instagram: { solid: '#D62976', soft: '#FCE9F2', onSolid: '#FFFFFF' },
+  WhatsApp: { solid: '#1DA851', soft: '#E6F6EC', onSolid: '#FFFFFF' },
+  Email: { solid: '#EE6A23', soft: '#FDEEE4', onSolid: '#FFFFFF' },
+};
+
+export const getChannelTheme = (channel) => CHANNEL_THEME[channel] || CHANNEL_THEME.Email;
