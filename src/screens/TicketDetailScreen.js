@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Pressable,
   Animated,
+  PanResponder,
   BackHandler,
   Keyboard,
   StatusBar,
@@ -111,6 +112,11 @@ const buildConversation = (ticket) => {
   const name = ticket.username.replace('@', '').split(/[\s_]+/)[0];
   const template = CONVERSATION_TEMPLATES[Number(ticket.id) % CONVERSATION_TEMPLATES.length](name);
   const first = { id: 'm0', from: 'customer', text: ticket.message, time: ticket.time };
+  if (ticket.isNew) {
+    // Freshly created ticket: only the customer's issue (+ any attachments) so far.
+    const atts = (ticket.attachments || []).map((a, i) => ({ ...a, key: `new${i}` }));
+    return [{ ...first, text: ticket.subject ? `**${ticket.subject}**\n${ticket.message}` : ticket.message, attachments: atts }];
+  }
   return [
     first,
     ...template.map(([from, text], i) => ({
@@ -381,6 +387,19 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
   const scrimOpacity = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.25] });
   const panelTranslateX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH, 0] });
 
+  // Swipe right on the panel (or the dimmed chat) to close it; the panel follows the finger.
+  const panelPan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponderCapture: (_, g) => g.dx > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderGrant: () => panelAnim.stopAnimation(),
+        onPanResponderMove: (_, g) => panelAnim.setValue(Math.max(0, Math.min(1, 1 - g.dx / PANEL_WIDTH))),
+        onPanResponderRelease: (_, g) => togglePanel(!(g.dx > PANEL_WIDTH * 0.3 || g.vx > 0.5)),
+        onPanResponderTerminate: () => togglePanel(true),
+      }),
+    [panelAnim, togglePanel],
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -489,6 +508,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
         <Animated.View
           pointerEvents={panelOpen ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrimOpacity }]}
+          {...panelPan.panHandlers}
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => togglePanel(false)} />
         </Animated.View>
@@ -501,7 +521,10 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
           styles.panel,
           { width: PANEL_WIDTH, paddingTop: topInset, paddingBottom: bottomInset, transform: [{ translateX: panelTranslateX }] },
         ]}
+        {...panelPan.panHandlers}
       >
+        {/* Grab handle hints that the panel can be swiped away */}
+        <View pointerEvents="none" style={styles.panelGrip} />
         <View style={styles.panelHeader}>
           <Text style={styles.panelTitle}>Ticket info</Text>
           <TouchableOpacity onPress={() => togglePanel(false)} style={styles.iconButton} hitSlop={8}>
@@ -524,9 +547,9 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
           <View style={styles.card}>
             <InfoRow label="Ticket ID" value={ticketNumber} />
             <InfoRow label="Status" value={status} />
-            <InfoRow label="Priority" value="High" />
-            <InfoRow label="Assignee" value="You" />
-            <InfoRow label="Category" value="Internet" />
+            <InfoRow label="Priority" value={ticket.priority || 'High'} />
+            <InfoRow label="Assignee" value={ticket.assignee || 'You'} />
+            <InfoRow label="Category" value={ticket.category || 'Internet'} />
             <InfoRow label="Created" value={`Today, ${ticket.time}`} />
             <InfoRow label="Messages" value={String(messages.length)} last />
           </View>
@@ -689,6 +712,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 16,
+  },
+  panelGrip: {
+    position: 'absolute',
+    left: 6,
+    top: '50%',
+    marginTop: -22,
+    width: 4,
+    height: 44,
+    borderRadius: 2,
+    backgroundColor: '#E2E2E2',
   },
   panelHeader: {
     flexDirection: 'row',

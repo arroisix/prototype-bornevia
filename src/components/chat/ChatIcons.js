@@ -7,7 +7,7 @@ const S = ({ size = 20, children, viewBox = '0 0 24 24' }) => (
   </Svg>
 );
 
-export const SparkleIcon = ({ size = 20, color = '#7B4DFF' }) => (
+export const SparkleIcon = ({ size = 20, color = '#EE4323' }) => (
   <S size={size}>
     <Path d="M12 2.5L13.9 8.1L19.5 10L13.9 11.9L12 17.5L10.1 11.9L4.5 10L10.1 8.1L12 2.5Z" fill={color} />
     <Path d="M19 15L19.8 17.2L22 18L19.8 18.8L19 21L18.2 18.8L16 18L18.2 17.2L19 15Z" fill={color} />

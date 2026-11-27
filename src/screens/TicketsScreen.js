@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -41,53 +41,23 @@ const NewTicketIcon = () => (
   </Svg>
 );
 
-// Generate 25 dummy tickets
-const channels = ['Twitter', 'Facebook', 'FB Messenger', 'Instagram', 'WhatsApp', 'Email'];
-const usernames = [
-  '@michael_greek', '@internet_cool', 'Mary Thompson', 'Jane Wilson', 'Emma Thompson',
-  'Nina Suryana', '@tech_guru', 'John Smith', '@social_butterfly', 'Lisa Anderson',
-  '@quick_help', 'Robert Brown', '@digital_nomad', 'Sarah Connor', '@customer_first',
-  'David Lee', '@happy_user', 'Michelle Obama', '@speed_racer', 'Chris Evans',
-  '@feedback_king', 'Amanda White', '@loyal_customer', 'James Bond', '@support_seeker'
-];
-const messages = [
-  '@ISPCompany, internet crawling today. Any solutions? #NeedSpeed',
-  'Hey @ISPCompany, experiencing sluggish internet. Any solutions?',
-  'Hi @ISPCompany, I\'ve been facing really slow internet speeds lately. Can you ple...',
-  'Seriously @ISPCompany, what\'s going on with your internet?! It\'s been painfully slo...',
-  'Hey there! I just tried to purchase a new internet subscription on your website, bu...',
-  'Yeah! You\'re right.',
-  'My connection keeps dropping every few minutes. Please help!',
-  'When will the maintenance be completed? It\'s been 3 hours already.',
-  'Thank you for the quick response! Really appreciate it.',
-  'I need to upgrade my plan. How do I do that?',
-  'The mobile app is not working properly. Getting error 404.',
-  'Can someone help me reset my password? Urgent!',
-  'Your service has been excellent lately. Keep it up!',
-  'I was charged twice for my subscription. Please refund.',
-  'How do I cancel my subscription? Can\'t find the option.',
-  'The speed test shows 10mbps but I\'m paying for 100mbps!',
-  'Great customer service experience today. Thanks team!',
-  'My router is blinking red. What does that mean?',
-  'Need technical support for setting up mesh network.',
-  'Invoice not received for this month. Please resend.',
-  'Website is down. Cannot access my account dashboard.',
-  'Fiber installation scheduled for next week. Excited!',
-  'Billing address needs to be updated. How to change?',
-  'Excellent service! Recommended to all my friends.',
-  'Connection timeout error when streaming. Please fix.',
-];
 
-const ticketsData = Array.from({ length: 25 }, (_, i) => ({
-  id: String(i + 1),
-  username: usernames[i],
-  channel: channels[i % channels.length],
-  message: messages[i],
-  time: `${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-}));
 
-const TicketItem = ({ item, onPress }) => {
+const TicketItem = ({ item, onPress, highlight }) => {
   const pressAnim = useRef(new Animated.Value(0)).current;
+  // Newly created ticket: slide in, then a soft brand-colour flash that fades out.
+  const flash = useRef(new Animated.Value(highlight ? 1 : 0)).current;
+  const enter = useRef(new Animated.Value(highlight ? 0 : 1)).current;
+  useEffect(() => {
+    if (!highlight) return;
+    Animated.parallel([
+      Animated.spring(enter, { toValue: 1, tension: 90, friction: 12, useNativeDriver: false }),
+      Animated.sequence([
+        Animated.delay(900),
+        Animated.timing(flash, { toValue: 0, duration: 1600, useNativeDriver: false }),
+      ]),
+    ]).start();
+  }, [highlight, enter, flash]);
 
   const animateTo = (toValue) => {
     Animated.spring(pressAnim, {
@@ -110,6 +80,13 @@ const TicketItem = ({ item, onPress }) => {
       onPressOut={() => animateTo(0)}
       onPress={() => onPress(item)}
     >
+      <Animated.View
+        style={{
+          opacity: enter,
+          transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }],
+          backgroundColor: flash.interpolate({ inputRange: [0, 1], outputRange: ['rgba(238,67,35,0)', 'rgba(238,67,35,0.10)'] }),
+        }}
+      >
       <Animated.View style={[styles.ticketItem, { backgroundColor, transform: [{ scale }] }]}>
         <View style={styles.channelIconContainer}>
           <ChannelIcon channel={item.channel} size={24} />
@@ -117,7 +94,14 @@ const TicketItem = ({ item, onPress }) => {
         <View style={styles.content}>
           <View style={styles.bodyRow}>
             <View style={styles.middleSection}>
-              <Text style={styles.sender} numberOfLines={1}>{item.username}</Text>
+              <View style={styles.senderRow}>
+                <Text style={[styles.sender, styles.flexShrink]} numberOfLines={1}>{item.username}</Text>
+                {item.isNew && (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>NEW</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
             </View>
             <View style={styles.rightSection}>
@@ -126,16 +110,17 @@ const TicketItem = ({ item, onPress }) => {
           </View>
         </View>
       </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 };
 
 export default function TicketsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { openTicket } = useTicketDetail();
+  const { openTicket, openNewTicket, tickets, highlightId } = useTicketDetail();
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const filteredTickets = ticketsData.filter(ticket =>
+  const filteredTickets = tickets.filter(ticket =>
     ticket.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ticket.message.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -179,7 +164,7 @@ export default function TicketsScreen() {
       <Animated.FlatList
         data={filteredTickets}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TicketItem item={item} onPress={openTicket} />}
+        renderItem={({ item }) => <TicketItem item={item} onPress={openTicket} highlight={item.id === highlightId} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
@@ -227,7 +212,7 @@ export default function TicketsScreen() {
           { transform: [{ translateY: buttonTranslateY }], opacity: buttonOpacity }
         ]}
       >
-        <TouchableOpacity style={styles.newTicketButton}>
+        <TouchableOpacity style={styles.newTicketButton} onPress={openNewTicket} activeOpacity={0.85}>
           <NewTicketIcon />
           <Text style={styles.newTicketText}>New Ticket</Text>
         </TouchableOpacity>
@@ -322,6 +307,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  senderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  flexShrink: { flexShrink: 1 },
+  newBadge: { backgroundColor: '#EE4323', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  newBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   sender: {
     fontSize: 14,
     fontWeight: '700',

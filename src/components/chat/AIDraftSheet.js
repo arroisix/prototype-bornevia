@@ -29,8 +29,11 @@ import {
   CheckSmallIcon,
 } from './ChatIcons';
 
-export const AI_COLOR = '#7B4DFF';
-const AI_SOFT = '#F1ECFF';
+import { BRAND, BRAND_SOFT, BRAND_TINT, BRAND_LINE, BRAND_SKELETON } from '../../theme/brand';
+
+// AI features use the Bornevia brand colour.
+export const AI_COLOR = BRAND;
+const AI_SOFT = BRAND_SOFT;
 
 // ---------- small animated pieces ----------
 
@@ -520,15 +523,15 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#292929' },
   draftCard: {
     borderWidth: 1.5,
-    borderColor: '#E6DEFF',
-    backgroundColor: '#FCFBFF',
+    borderColor: BRAND_LINE,
+    backgroundColor: BRAND_TINT,
     borderRadius: 16,
     padding: 14,
     minHeight: 170,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   statusText: { fontSize: 13, fontWeight: '600', color: AI_COLOR },
-  skeletonLine: { height: 12, borderRadius: 6, backgroundColor: '#ECE7FA', overflow: 'hidden' },
+  skeletonLine: { height: 12, borderRadius: 6, backgroundColor: BRAND_SKELETON, overflow: 'hidden' },
   shimmerBar: { width: 120, height: '100%', backgroundColor: 'rgba(255,255,255,0.75)' },
   draftText: { fontSize: 15, lineHeight: 23, color: '#292929' },
   dimmed: { opacity: 0.25 },
@@ -541,7 +544,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     marginBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(123,77,255,0.12)',
+    borderBottomColor: 'rgba(238,67,35,0.12)',
   },
   toolBtn: {
     width: 34,
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EEEAF8',
+    borderColor: BRAND_LINE,
   },
   undoBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: '#F3F3F3' },
   undoText: { fontSize: 12, fontWeight: '600', color: '#292929' },

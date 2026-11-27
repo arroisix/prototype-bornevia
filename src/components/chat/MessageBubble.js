@@ -69,8 +69,8 @@ export default function MessageBubble({ message, theme, grouped }) {
             )}
             {message.templateTitle && (
               <View style={styles.tag}>
-                <TemplateIcon size={11} color="#D4561A" />
-                <Text style={[styles.tagText, { color: '#D4561A' }]}>{message.templateTitle}</Text>
+                <TemplateIcon size={11} color="#3B3F45" />
+                <Text style={[styles.tagText, { color: '#3B3F45' }]}>{message.templateTitle}</Text>
               </View>
             )}
           </View>

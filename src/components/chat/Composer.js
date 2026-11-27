@@ -14,6 +14,7 @@ import {
   AlertIcon,
 } from './ChatIcons';
 import { AI_COLOR } from './AIDraftSheet';
+import { BRAND_SOFT } from '../../theme/brand';
 
 const THUMB = 68;
 const INPUT_MIN = 44;
@@ -54,7 +55,7 @@ export const PopIn = ({ children, style, from = 8 }) => {
 const MENU_ITEMS = [
   { key: 'photos', label: 'Photo', desc: 'From gallery', Icon: ImageIcon, bg: '#E7F0FE', fg: '#1877F2' },
   { key: 'videos', label: 'Video', desc: 'Max 10 MB', Icon: VideoIcon, bg: '#FCE9F2', fg: '#D62976' },
-  { key: 'templates', label: 'Templates', desc: 'Saved replies', Icon: TemplateIcon, bg: '#FDEEE4', fg: '#D4561A' },
+  { key: 'templates', label: 'Templates', desc: 'Saved replies', Icon: TemplateIcon, bg: '#EEF0F2', fg: '#3B3F45' },
 ];
 
 export const AttachMenu = ({ open, onPick, bottom }) => {
@@ -223,7 +224,7 @@ export default function Composer({
       {(aiState || template) && (
         <View style={styles.chipRow}>
           {aiState && (
-            <PopIn style={[styles.ctxChip, { backgroundColor: '#F1ECFF' }]}>
+            <PopIn style={[styles.ctxChip, { backgroundColor: BRAND_SOFT }]}>
               <SparkleIcon size={14} color={AI_COLOR} />
               <Text style={[styles.ctxChipText, { color: AI_COLOR }]}>
                 {aiEdited ? 'AI draft · edited' : 'AI draft applied'}
@@ -237,12 +238,12 @@ export default function Composer({
             </PopIn>
           )}
           {template && (
-            <PopIn style={[styles.ctxChip, { backgroundColor: '#FDEEE4' }]}>
-              <TemplateIcon size={14} color="#D4561A" />
-              <Text style={[styles.ctxChipText, { color: '#D4561A' }]} numberOfLines={1}>
+            <PopIn style={[styles.ctxChip, { backgroundColor: '#EEF0F2' }]}>
+              <TemplateIcon size={14} color="#3B3F45" />
+              <Text style={[styles.ctxChipText, { color: '#3B3F45' }]} numberOfLines={1}>
                 Template · {template.title}
               </Text>
-              <TouchableOpacity onPress={onClearTemplate} hitSlop={6} style={[styles.ctxChipClose, { backgroundColor: '#D4561A' }]}>
+              <TouchableOpacity onPress={onClearTemplate} hitSlop={6} style={[styles.ctxChipClose, { backgroundColor: '#3B3F45' }]}>
                 <CloseSmallIcon size={8} />
               </TouchableOpacity>
             </PopIn>
@@ -370,7 +371,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1ECFF',
+    backgroundColor: BRAND_SOFT,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 6,
