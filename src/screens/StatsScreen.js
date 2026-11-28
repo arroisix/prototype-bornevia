@@ -18,6 +18,7 @@ import { useTicketDetail } from '../components/TicketDetailContext';
 import { PopIn } from '../components/chat/Composer';
 import { CalendarIcon, DownloadIcon, LinkIcon } from '../components/MenuIcons';
 import { CHART_METRICS, PERIODS, getOverview, getSeries, metricLabel } from '../data/reports';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? 40 : 44;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -262,6 +263,7 @@ export default function StatsScreen() {
       </View>
       </BlurHeader>
 
+      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom + 16}>
       <Animated.ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
@@ -301,6 +303,7 @@ export default function StatsScreen() {
           <BarChart key={`${chartMetric}-${selectedPeriod}`} data={chartData} isVisible={chartVisible} />
         </View>
       </Animated.ScrollView>
+      </ProgressiveBlurContainer>
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   Platform,
   StatusBar,
   ScrollView,
-  Image,
 } from 'react-native';
-import Svg, { Path, Circle, Line, Ellipse, G } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BlurHeader from '../components/BlurHeader';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
+import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? 40 : 44;
 
@@ -68,19 +71,18 @@ const MenuItem = ({ icon: Icon, title, value, onPress, showBorder = true }) => (
 );
 
 export default function ProfileScreen({ onLogout }) {
+  const insets = useSafeAreaInsets();
+  const [headerH, setHeaderH] = useState(STATUS_BAR_HEIGHT + 92);
+  const barSpace = TAB_BAR_HEIGHT + insets.bottom;
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
+      <ProgressiveBlurContainer top={headerH + 12} bottom={barSpace + 16}>
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: headerH, paddingBottom: barSpace + 40 }]}
       >
         {/* Profile Info Row */}
         <View style={styles.profileRow}>
@@ -130,6 +132,14 @@ export default function ProfileScreen({ onLogout }) {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
       </ScrollView>
+      </ProgressiveBlurContainer>
+
+      {/* Header — floats over the content (edge to edge) */}
+      <BlurHeader>
+        <View style={styles.header} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
+      </BlurHeader>
     </View>
   );
 }
@@ -143,7 +153,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: STATUS_BAR_HEIGHT + 17,
     paddingBottom: 32,
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontSize: 36,

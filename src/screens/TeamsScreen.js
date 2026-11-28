@@ -10,6 +10,7 @@ import { BellOffIcon, PinIcon } from '../components/MenuIcons';
 import { personById } from '../data/teams';
 import BlurHeader from '../components/BlurHeader';
 import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const PlusIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
@@ -98,6 +99,7 @@ export default function TeamsScreen() {
 
   return (
     <View style={styles.container}>
+      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom + 16}>
       <Animated.FlatList
         data={sorted}
         keyExtractor={(item) => item.id}
@@ -113,6 +115,7 @@ export default function TeamsScreen() {
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
       />
+      </ProgressiveBlurContainer>
 
       {/* Blurred header: content scrolls underneath, edge to edge */}
       <BlurHeader height={headerH} scrollY={scrollY}>

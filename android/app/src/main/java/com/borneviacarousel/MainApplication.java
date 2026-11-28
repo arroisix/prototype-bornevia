@@ -8,7 +8,6 @@ import com.airbnb.android.react.lottie.LottiePackage;
 import com.th3rdwave.safeareacontext.SafeAreaContextPackage;
 import com.swmansion.rnscreens.RNScreensPackage;
 import com.horcrux.svg.SvgPackage;
-import com.reactnativecommunity.blurview.BlurViewPackage;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
@@ -36,8 +35,7 @@ public class MainApplication extends Application implements ReactApplication {
             new NavigationBarPackage(),
             new SafeAreaContextPackage(),
             new RNScreensPackage(),
-            new SvgPackage(),
-            new BlurViewPackage()
+            new SvgPackage()
           );
         }
 

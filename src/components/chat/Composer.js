@@ -193,6 +193,7 @@ export default function Composer({
   onSend,
   bottomInset,
   onLayout,
+  floating,
 }) {
   const plusAnim = useRef(new Animated.Value(0)).current;
   // Height is driven by the measured content so the field is exactly 44px for one line
@@ -219,7 +220,7 @@ export default function Composer({
   else if (failed) hint = 'Remove or retry failed files to send';
 
   return (
-    <View style={[styles.container, { paddingBottom: bottomInset }]} onLayout={onLayout}>
+    <View style={[styles.container, floating && styles.floating, { paddingBottom: bottomInset }]} onLayout={onLayout}>
       {/* Context chips: AI draft applied / template used */}
       {(aiState || template) && (
         <View style={styles.chipRow}>
@@ -336,6 +337,8 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(46, 46, 46, 0.08)',
     backgroundColor: '#FFFFFF',
   },
+  // Over a progressive-blur area: no solid fill or divider.
+  floating: { backgroundColor: 'transparent', borderTopWidth: 0 },
   row: { flexDirection: 'row', gap: 8 },
   plusBtn: {
     width: 44,

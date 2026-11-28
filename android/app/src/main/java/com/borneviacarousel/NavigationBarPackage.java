@@ -19,6 +19,8 @@ public class NavigationBarPackage implements ReactPackage {
 
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
-        return Collections.emptyList();
+        List<ViewManager> managers = new ArrayList<>();
+        managers.add(new ProgressiveBlurViewManager());
+        return managers;
     }
 }

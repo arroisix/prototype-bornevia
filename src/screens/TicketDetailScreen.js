@@ -23,6 +23,8 @@ import MediaPickerSheet from '../components/chat/MediaPickerSheet';
 import TemplatesSheet from '../components/chat/TemplatesSheet';
 import useKeyboardInset from '../components/chat/useKeyboardInset';
 import { usePredictiveBack } from '../components/predictiveBack';
+import BlurHeader from '../components/BlurHeader';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const MAX_UPLOAD_MB = 10;
 const sizeInMB = (size) => (size.includes('MB') ? parseFloat(size) : parseFloat(size) / 1024);
@@ -239,6 +241,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheet, setSheet] = useState(null); // { type: 'ai' | 'photos' | 'videos' | 'templates', initialText? }
   const [composerH, setComposerH] = useState(70);
+  const [headerH, setHeaderH] = useState(Math.max(insets.top, 24) + 66);
   const sheetRef = useRef(null);
   const failedOnce = useRef(new Set());
 
@@ -415,38 +418,14 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Chat area (pushed left when the panel opens) */}
-      <Animated.View style={[styles.flex, { paddingTop: topInset, transform: [{ translateX: chatTranslateX }] }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity accessibilityLabel="Back" onPress={onClose} style={styles.iconButton} hitSlop={8}>
-            <BackIcon />
-          </TouchableOpacity>
-          <FadeInUp progress={progress} index={0} style={styles.headerCenter}>
-            <View style={[styles.avatar, { backgroundColor: theme.soft }]}>
-              <Text style={[styles.avatarText, { color: theme.solid }]}>{getInitials(ticket.username)}</Text>
-              <View style={styles.avatarBadge}>
-                <ChannelIcon channel={ticket.channel} size={12} />
-              </View>
-            </View>
-            <View style={styles.headerTextWrap}>
-              <Text style={styles.headerName} numberOfLines={1}>{ticket.username}</Text>
-              <Text style={styles.headerSub} numberOfLines={1}>
-                {ticket.channel} · {ticketNumber}
-              </Text>
-            </View>
-            <StatusPill status={status} />
-          </FadeInUp>
-          <TouchableOpacity accessibilityLabel="Ticket info" onPress={() => togglePanel(!panelOpen)} style={styles.iconButton} hitSlop={8}>
-            <SidebarIcon active={panelOpen} />
-          </TouchableOpacity>
-        </View>
-
+      <Animated.View style={[styles.flex, { transform: [{ translateX: chatTranslateX }] }]}>
         {/* Edge-to-edge window: lift the chat above the keyboard ourselves */}
         <View style={[styles.flex, { paddingBottom: sheet ? 0 : keyboardInset }]}>
+          <ProgressiveBlurContainer top={headerH + 12} bottom={composerH + 12}>
           <ScrollView
             ref={scrollRef}
             style={styles.flex}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingTop: headerH + 8, paddingBottom: composerH + 12 }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
@@ -474,6 +453,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
               </PopIn>
             )}
           </ScrollView>
+          </ProgressiveBlurContainer>
 
           {/* Tap-away layer + attach menu (inside this container so touches register on Android) */}
           {menuOpen && <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />}
@@ -483,7 +463,9 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             onPick={(key) => openSheet(key)}
           />
 
+          <BlurHeader position="bottom">
           <Composer
+            floating
             theme={theme}
             channel={ticket.channel}
             value={reply}
@@ -512,7 +494,36 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
             bottomInset={keyboardInset && !sheet ? 8 : bottomInset}
             onLayout={(e) => setComposerH(e.nativeEvent.layout.height)}
           />
+          </BlurHeader>
         </View>
+
+        {/* Header — floats over the chat (edge to edge) */}
+        <BlurHeader>
+        <View style={[styles.header, { paddingTop: topInset + 6 }]} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+          <TouchableOpacity accessibilityLabel="Back" onPress={onClose} style={styles.iconButton} hitSlop={8}>
+            <BackIcon />
+          </TouchableOpacity>
+          <FadeInUp progress={progress} index={0} style={styles.headerCenter}>
+            <View style={[styles.avatar, { backgroundColor: theme.soft }]}>
+              <Text style={[styles.avatarText, { color: theme.solid }]}>{getInitials(ticket.username)}</Text>
+              <View style={styles.avatarBadge}>
+                <ChannelIcon channel={ticket.channel} size={12} />
+              </View>
+            </View>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.headerName} numberOfLines={1}>{ticket.username}</Text>
+              <Text style={styles.headerSub} numberOfLines={1}>
+                {ticket.channel} · {ticketNumber}
+              </Text>
+            </View>
+            <StatusPill status={status} />
+          </FadeInUp>
+          <TouchableOpacity accessibilityLabel="Ticket info" onPress={() => togglePanel(!panelOpen)} style={styles.iconButton} hitSlop={8}>
+            <SidebarIcon active={panelOpen} />
+          </TouchableOpacity>
+        </View>
+        </BlurHeader>
+
 
         {/* Scrim over the chat while the panel is open */}
         <Animated.View
@@ -638,10 +649,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(46, 46, 46, 0.08)',
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 10,
   },
   iconButton: {
     width: 40,

@@ -22,6 +22,8 @@ import { PopIn } from '../components/chat/Composer';
 import { CloseIcon, CloseSmallIcon, CheckSmallIcon, ImageIcon, PlayIcon } from '../components/chat/ChatIcons';
 import { BRAND, BRAND_SOFT } from '../theme/brand';
 import { usePredictiveBack } from '../components/predictiveBack';
+import BlurHeader from '../components/BlurHeader';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const CHANNELS = ['Email', 'WhatsApp', 'Facebook', 'FB Messenger', 'Instagram', 'Twitter'];
 const PRIORITIES = [
@@ -239,6 +241,8 @@ export default function NewTicketScreen({ progress, tickets, nextNumber, onClose
   const [phase, setPhase] = useState('editing'); // editing | creating | success
   const [showDiscard, setShowDiscard] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [headerH, setHeaderH] = useState(Math.max(insets.top, 24) + 64);
+  const [footerH, setFooterH] = useState(Math.max(insets.bottom, 12) + 72);
   const mediaRef = useRef(null);
 
   // Back only dismisses the discard dialog: keep the page still during the gesture.
@@ -329,22 +333,11 @@ export default function NewTicketScreen({ progress, tickets, nextNumber, onClose
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 6 }]}>
-        <TouchableOpacity accessibilityLabel="Close new ticket" style={styles.headerBtn} onPress={requestClose}>
-          <CloseIcon size={20} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>New Ticket</Text>
-          <Text style={styles.headerSub}>{ticketNumber} · Draft</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
-
+      <ProgressiveBlurContainer top={headerH + 12} bottom={footerH + keyboardInset + 12}>
       <ScrollView
         ref={scrollRef}
         style={styles.flex}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: headerH + 16, paddingBottom: footerH + keyboardInset + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -555,9 +548,11 @@ export default function NewTicketScreen({ progress, tickets, nextNumber, onClose
           </View>
         </Section>
       </ScrollView>
+      </ProgressiveBlurContainer>
 
-      {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: keyboardInset ? 12 : Math.max(insets.bottom, 12), marginBottom: keyboardInset }]}>
+      {/* Footer — floats above the form / keyboard */}
+      <BlurHeader position="bottom" style={{ bottom: keyboardInset }}>
+      <View style={[styles.footer, { paddingBottom: keyboardInset ? 12 : Math.max(insets.bottom, 12) }]} onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}>
         {channelTheme && phase === 'editing' && (
           <Text style={styles.footerHint} numberOfLines={1}>
             Replies will be sent via {channel}
@@ -568,6 +563,22 @@ export default function NewTicketScreen({ progress, tickets, nextNumber, onClose
           <Text style={styles.createText}>{phase === 'creating' ? 'Creating ticket…' : 'Create ticket'}</Text>
         </Pressable>
       </View>
+      </BlurHeader>
+
+      {/* Header — floats over the form (edge to edge) */}
+      <BlurHeader>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 6 }]} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+        <TouchableOpacity accessibilityLabel="Close new ticket" style={styles.headerBtn} onPress={requestClose}>
+          <CloseIcon size={20} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>New Ticket</Text>
+          <Text style={styles.headerSub}>{ticketNumber} · Draft</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
+      </BlurHeader>
+
 
       {phase === 'success' && <SuccessOverlay ticketNumber={ticketNumber} />}
 
@@ -602,8 +613,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(46,46,46,0.08)',
   },
   headerBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' },
   headerSpacer: { width: 40, height: 40 },
@@ -720,9 +729,6 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 16,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(46,46,46,0.08)',
-    backgroundColor: '#FFFFFF',
   },
   footerHint: { fontSize: 12, color: 'rgba(93,92,93,0.75)', textAlign: 'center', marginBottom: 8 },
   createBtn: {

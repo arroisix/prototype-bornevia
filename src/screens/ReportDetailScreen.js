@@ -12,6 +12,7 @@ import { BackArrowIcon, CalendarIcon, ChevronDownIcon, DownloadIcon, LinkIcon, S
 import { INSIGHTS, PERIODS, TOP_AGENTS, getBreakdown, getSeries } from '../data/reports';
 import { personById } from '../data/teams';
 import { BRAND, BRAND_SOFT } from '../theme/brand';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const { width: W } = Dimensions.get('window');
 const CHART_W = W - 64;
@@ -198,6 +199,7 @@ export default function ReportDetailScreen({ report, progress, onClose }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <ProgressiveBlurContainer top={headerH + 20} bottom={Math.max(insets.bottom, 12) + 80}>
       <Animated.ScrollView
         contentContainerStyle={{ paddingTop: headerH + 4, paddingBottom: Math.max(insets.bottom, 12) + 96, paddingHorizontal: 16 }}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
@@ -277,6 +279,7 @@ export default function ReportDetailScreen({ report, progress, onClose }) {
           })}
         </Stagger>
       </Animated.ScrollView>
+      </ProgressiveBlurContainer>
 
       <BlurHeader height={headerH} scrollY={scrollY}>
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 6 }]}>

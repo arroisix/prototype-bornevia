@@ -21,6 +21,7 @@ import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PopIn } from '../components/chat/Composer';
 import { CheckAllIcon, DownloadIcon, RefreshIcon } from '../components/MenuIcons';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const CHANNEL_FILTERS = ['All channels', 'Email', 'WhatsApp', 'Facebook', 'FB Messenger', 'Instagram', 'Twitter'];
 const SORTS = ['Newest first', 'Oldest first', 'Name A–Z'];
@@ -205,6 +206,7 @@ export default function TicketsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Tickets List */}
+      <ProgressiveBlurContainer top={TOTAL_HEADER_HEIGHT + 8} bottom={barSpace + 16}>
       <Animated.FlatList
         ref={listRef}
         data={filteredTickets}
@@ -218,6 +220,7 @@ export default function TicketsScreen() {
         )}
         scrollEventThrottle={16}
       />
+      </ProgressiveBlurContainer>
 
       {/* Fixed header — frosted blur, edge to edge under the status bar */}
       <BlurHeader style={styles.headerWrapper}>

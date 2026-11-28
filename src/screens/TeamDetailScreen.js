@@ -33,6 +33,7 @@ import {
 } from '../components/MenuIcons';
 import { TEAM_ACTIVITY, personById } from '../data/teams';
 import { BRAND } from '../theme/brand';
+import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
 const TABS = ['Members', 'Queue', 'Activity'];
 const CAPACITY = 10;
@@ -148,6 +149,7 @@ export default function TeamDetailScreen({ teamId, openAddMember, progress, onCl
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
+      <ProgressiveBlurContainer top={headerH + 20} bottom={Math.max(insets.bottom, 12) + 80}>
       <Animated.ScrollView
         contentContainerStyle={{ paddingTop: headerH, paddingBottom: Math.max(insets.bottom, 12) + 96 }}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
@@ -306,6 +308,7 @@ export default function TeamDetailScreen({ teamId, openAddMember, progress, onCl
           )}
         </Stagger>
       </Animated.ScrollView>
+      </ProgressiveBlurContainer>
 
       {/* Header (blurred, edge to edge) */}
       <BlurHeader height={headerH} scrollY={scrollY}>
