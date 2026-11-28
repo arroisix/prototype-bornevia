@@ -6,10 +6,18 @@ import {
   Platform,
   StatusBar,
   Dimensions,
-  TouchableOpacity,
   Animated,
+  Pressable,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Rect, Line } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ActionMenu from '../components/ActionMenu';
+import BlurHeader from '../components/BlurHeader';
+import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
+import { useTicketDetail } from '../components/TicketDetailContext';
+import { PopIn } from '../components/chat/Composer';
+import { CalendarIcon, DownloadIcon, LinkIcon } from '../components/MenuIcons';
+import { CHART_METRICS, PERIODS, getOverview, getSeries, metricLabel } from '../data/reports';
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? 40 : 44;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,37 +40,33 @@ const CaretDownIcon = ({ color = '#0D0D0D', size = 12 }) => (
   </Svg>
 );
 
-const statsData = [
-  { value: '32%', label: 'Tickets Received', change: '+8%', positive: true },
-  { value: '35%', label: 'Tickets Closed', change: '-2%', positive: false },
-  { value: '5 minutes', label: 'Avg First Response Time', change: '+12%', positive: true },
-  { value: '50 replies', label: 'Avg Replies per Day', change: '-2%', positive: false },
-  { value: 'Wednesday', label: 'Highest Traffic Day', change: null, positive: null },
-];
-
-const chartData = [
-  { day: 'Su', value: 92 },
-  { day: 'Mo', value: 124 },
-  { day: 'Tu', value: 87 },
-  { day: 'We', value: 110 },
-  { day: 'Te', value: 77 },
-  { day: 'Fr', value: 23 },
-  { day: 'Sa', value: 53 },
-];
-
-const StatCard = ({ stat, isFullWidth = false }) => (
-  <View style={[styles.statCard, isFullWidth && styles.statCardFull]}>
+const StatCard = ({ stat, isFullWidth = false, onPress, compare }) => {
+  const press = useRef(new Animated.Value(0)).current;
+  const spring = (v) => Animated.spring(press, { toValue: v, tension: 300, friction: 20, useNativeDriver: true }).start();
+  return (
+  <Pressable
+    onPress={onPress}
+    onPressIn={() => spring(1)}
+    onPressOut={() => spring(0)}
+    style={isFullWidth ? styles.statCardFullWrap : styles.statCardWrap}
+  >
+  <Animated.View style={[styles.statCard, isFullWidth && styles.statCardFull, { transform: [{ scale: press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] }) }] }]}>
     <View style={styles.statHeader}>
       <Text style={styles.statValue}>{stat.value}</Text>
-      {stat.change && (
+      {stat.change && compare && (
         <View style={[styles.changeBadge, stat.positive ? styles.positiveBadge : styles.negativeBadge]}>
           <Text style={styles.changeText}>{stat.change}</Text>
         </View>
       )}
     </View>
-    <Text style={styles.statLabel}>{stat.label}</Text>
-  </View>
-);
+    <View style={styles.statFooter}>
+      <Text style={styles.statLabel}>{stat.label}</Text>
+      <Text style={styles.statChevron}>›</Text>
+    </View>
+  </Animated.View>
+  </Pressable>
+  );
+};
 
 // Animated bar with gradient - only animates when isVisible is true
 const AnimatedBar = ({ value, maxValue, chartHeight, delay, barWidth, isVisible }) => {
@@ -169,7 +173,33 @@ const BarChart = ({ data, isVisible }) => {
 };
 
 export default function StatsScreen() {
+  const insets = useSafeAreaInsets();
+  const { openReport, showToast } = useTicketDetail();
   const [selectedPeriod, setSelectedPeriod] = useState('Last Week');
+  const [chartMetric, setChartMetric] = useState('received');
+  const [compare, setCompare] = useState(true);
+  const [hidden, setHidden] = useState([]);
+  const [headerH, setHeaderH] = useState(STATUS_BAR_HEIGHT + 110);
+  const statsData = getOverview(selectedPeriod).filter((s) => !hidden.includes(s.key));
+  const chartData = getSeries(chartMetric, selectedPeriod).map((d) => ({ day: d.label, value: d.value }));
+
+  const periodItems = () => PERIODS.map((p) => ({ key: p, label: p, checked: p === selectedPeriod, onPress: () => setSelectedPeriod(p) }));
+  const chartItems = () => CHART_METRICS.map((m) => ({ key: m, label: metricLabel(m), checked: m === chartMetric, onPress: () => setChartMetric(m) }));
+  const prefItems = () => [
+    { section: 'Display' },
+    { key: 'compare', label: 'Compare to previous', checked: compare, onPress: () => setCompare((c) => !c) },
+    ...getOverview(selectedPeriod).map((st) => ({
+      key: st.key,
+      label: st.label,
+      checked: !hidden.includes(st.key),
+      onPress: () => setHidden((h) => (h.includes(st.key) ? h.filter((x) => x !== st.key) : [...h, st.key])),
+    })),
+    { section: 'Report' },
+    { key: 'pdf', label: 'Export overview (PDF)', icon: DownloadIcon, onPress: () => showToast({ text: `${selectedPeriod} overview exported`, actionLabel: 'Open', onAction: () => {} }) },
+    { key: 'schedule', label: 'Email me weekly', hint: 'Mondays at 8:00 AM', icon: CalendarIcon, onPress: () => showToast({ text: 'Weekly report scheduled', tone: 'info' }) },
+    { key: 'link', label: 'Copy dashboard link', icon: LinkIcon, onPress: () => showToast({ text: 'Link copied', tone: 'info' }) },
+  ];
+  const open = (stat) => openReport({ ...stat, period: selectedPeriod, key: stat.key });
   const [chartVisible, setChartVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const chartYPosition = useRef(0);
@@ -184,12 +214,6 @@ export default function StatsScreen() {
   const collapsedPeriodOpacity = scrollY.interpolate({
     inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
     outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const headerBlur = scrollY.interpolate({
-    inputRange: [0, HEADER_SCROLL_DISTANCE],
-    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
 
@@ -210,44 +234,38 @@ export default function StatsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Blur Header Background */}
-      <Animated.View
-        style={[
-          styles.headerBackground,
-          { opacity: headerBlur }
-        ]}
-      />
-
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header — frosted blur, content scrolls underneath edge to edge */}
+      <BlurHeader scrollY={scrollY} style={{ zIndex: 5 }}>
+      <View style={styles.header} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
         <View style={styles.headerLeft}>
           <View style={styles.titleRow}>
             <Text style={styles.headerTitle}>Stats</Text>
             {/* Collapsed period selector */}
             <Animated.View style={[styles.collapsedPeriod, { opacity: collapsedPeriodOpacity }]}>
-              <TouchableOpacity style={styles.periodSelectorSmall}>
+              <ActionMenu items={periodItems} style={styles.periodSelectorSmall} accessibilityLabel="Change period">
                 <Text style={styles.periodTextSmall}>{selectedPeriod}</Text>
                 <CaretDownIcon color="#419AFF" size={12} />
-              </TouchableOpacity>
+              </ActionMenu>
             </Animated.View>
           </View>
           {/* Full period selector */}
           <Animated.View style={{ opacity: periodSelectorOpacity }}>
-            <TouchableOpacity style={styles.periodSelector}>
+            <ActionMenu items={periodItems} style={styles.periodSelector} accessibilityLabel="Change period">
               <Text style={styles.periodText}>{selectedPeriod}</Text>
               <CaretDownIcon color="#419AFF" size={16} />
-            </TouchableOpacity>
+            </ActionMenu>
           </Animated.View>
         </View>
-        <TouchableOpacity style={styles.preferencesButton}>
+        <ActionMenu items={prefItems} style={styles.preferencesButton} accessibilityLabel="Report preferences">
           <PreferencesIcon />
-        </TouchableOpacity>
+        </ActionMenu>
       </View>
+      </BlurHeader>
 
       <Animated.ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: headerH + 4, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true, listener: handleScroll }
@@ -258,27 +276,29 @@ export default function StatsScreen() {
         <Text style={styles.subtitle}>General Overview</Text>
 
         {/* Stats Cards Grid */}
+        <PopIn key={`${selectedPeriod}-${hidden.join()}`}>
         <View style={styles.cardsGrid}>
-          {statsData.slice(0, 2).map((stat, index) => (
-            <StatCard key={index} stat={stat} />
+          {statsData.slice(0, 2).map((stat) => (
+            <StatCard key={stat.key} stat={stat} compare={compare} onPress={() => open(stat)} />
           ))}
         </View>
 
         {/* Full Width Cards */}
-        {statsData.slice(2).map((stat, index) => (
-          <StatCard key={index + 2} stat={stat} isFullWidth />
+        {statsData.slice(2).map((stat) => (
+          <StatCard key={stat.key} stat={stat} isFullWidth compare={compare} onPress={() => open(stat)} />
         ))}
+        </PopIn>
 
         {/* Chart Section - Tickets Volume is now a section title in content */}
         <View style={styles.chartSection} onLayout={handleChartLayout}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Tickets Volume</Text>
-            <TouchableOpacity style={styles.chartSelector}>
-              <Text style={styles.chartSelectorText}>Tickets Received</Text>
+            <ActionMenu items={chartItems} style={styles.chartSelector} accessibilityLabel="Chart metric">
+              <Text style={styles.chartSelectorText}>{metricLabel(chartMetric)}</Text>
               <CaretDownIcon color="#000000" size={12} />
-            </TouchableOpacity>
+            </ActionMenu>
           </View>
-          <BarChart data={chartData} isVisible={chartVisible} />
+          <BarChart key={`${chartMetric}-${selectedPeriod}`} data={chartData} isVisible={chartVisible} />
         </View>
       </Animated.ScrollView>
     </View>
@@ -290,24 +310,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  headerBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: STATUS_BAR_HEIGHT + 80,
-    backgroundColor: '#FFFFFF',
-    zIndex: 1,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: STATUS_BAR_HEIGHT + 17,
-    paddingBottom: 0,
-    zIndex: 2,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 4,
   },
   headerLeft: {
     flex: 1,
@@ -373,6 +382,10 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 16,
   },
+  statCardWrap: { flex: 1 },
+  statCardFullWrap: { width: '100%' },
+  statFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statChevron: { fontSize: 22, color: 'rgba(0,0,0,0.25)', marginTop: -2 },
   statCard: {
     flex: 1,
     borderWidth: 1,
@@ -388,6 +401,8 @@ const styles = StyleSheet.create({
   },
   statHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 4,
     alignItems: 'center',
     gap: 11,
     marginBottom: 4,

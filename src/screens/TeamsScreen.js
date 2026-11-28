@@ -1,78 +1,16 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Platform,
-  StatusBar,
-} from 'react-native';
+import React, { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, TouchableOpacity, View, LayoutAnimation } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ActionMenu from '../components/ActionMenu';
+import useTeamActions from '../components/teams/useTeamActions';
+import { CreateTeamSheet, PersonAvatar } from '../components/teams/TeamSheets';
+import { useTicketDetail } from '../components/TicketDetailContext';
+import { BellOffIcon, PinIcon } from '../components/MenuIcons';
+import { personById } from '../data/teams';
+import BlurHeader from '../components/BlurHeader';
+import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? 40 : 44;
-
-// Avatar colors from Figma
-const AVATAR_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD',
-  '#87CEEB', '#F0E68C', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'
-];
-
-// Mock data based on Figma design
-const teamsData = [
-  {
-    id: '1',
-    name: 'Social Media',
-    members: [
-      { name: 'Andrew', color: AVATAR_COLORS[0] },
-      { name: 'Susan', color: AVATAR_COLORS[1] },
-      { name: 'James', color: AVATAR_COLORS[2] },
-    ],
-    extra: '+8 others',
-  },
-  {
-    id: '2',
-    name: 'Sales Team',
-    members: [
-      { name: 'Margareteh', color: AVATAR_COLORS[3] },
-      { name: 'Bianca', color: AVATAR_COLORS[4] },
-      { name: 'Steve', color: AVATAR_COLORS[5] },
-    ],
-    extra: '+12 others',
-  },
-  {
-    id: '3',
-    name: 'Technical Team',
-    members: [
-      { name: 'David', color: AVATAR_COLORS[6] },
-      { name: 'Michael', color: AVATAR_COLORS[7] },
-      { name: 'Kowalski', color: AVATAR_COLORS[8] },
-    ],
-    extra: '+12 others',
-  },
-  {
-    id: '4',
-    name: 'Marketing',
-    members: [
-      { name: 'Nina', color: AVATAR_COLORS[9] },
-      { name: 'Ali', color: AVATAR_COLORS[10] },
-      { name: 'Mina', color: AVATAR_COLORS[11] },
-    ],
-    extra: '+12 others',
-  },
-  {
-    id: '5',
-    name: 'Customer Service',
-    members: [
-      { name: 'David', color: AVATAR_COLORS[0] },
-      { name: 'Michael', color: AVATAR_COLORS[1] },
-      { name: 'Kowalski', color: AVATAR_COLORS[2] },
-    ],
-    extra: '+12 others',
-  },
-];
-
-// Plus Icon from Figma
 const PlusIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
     <Path
@@ -84,176 +22,154 @@ const PlusIcon = () => (
   </Svg>
 );
 
-// More Icon from Figma
-const MoreIcon = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M8 12C8 13.1046 7.10457 14 6 14C4.89543 14 4 13.1046 4 12C4 10.8954 4.89543 10 6 10C7.10457 10 8 10.8954 8 12ZM14 12C14 13.1046 13.1046 14 12 14C10.8954 14 10 13.1046 10 12C10 10.8954 10.8954 10 12 10C13.1046 10 14 10.8954 14 12ZM18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"
-      fill="#000000"
-    />
-  </Svg>
-);
-
-const getInitials = (name) => {
-  const parts = name.split(' ');
-  if (parts.length > 1) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.substring(0, 2).toUpperCase();
-};
-
-const Avatar = ({ name, color, style }) => (
-  <View style={[styles.avatar, { backgroundColor: color }, style]}>
-    <Text style={styles.avatarText}>{getInitials(name)}</Text>
-  </View>
-);
-
-const TeamItem = ({ item }) => {
-  const memberNames = item.members.map(m => m.name).join(', ');
-  const membersText = `${memberNames}, ${item.extra}`;
+const TeamCard = ({ team, onOpen, menuItems }) => {
+  const press = useRef(new Animated.Value(0)).current;
+  const spring = (v) => Animated.spring(press, { toValue: v, tension: 300, friction: 20, useNativeDriver: true }).start();
+  const members = team.members.map((m) => personById(m.id)).filter(Boolean);
+  const total = members.length + (team.extraMembers || 0);
+  const names = members.slice(0, 3).map((m) => m.name.split(' ')[0]).join(', ');
 
   return (
-    <TouchableOpacity style={styles.teamItem} activeOpacity={0.7}>
-      <View style={styles.teamHeader}>
-        <Text style={styles.teamName}>{item.name}</Text>
-        <TouchableOpacity style={styles.moreButton}>
-          <MoreIcon />
-        </TouchableOpacity>
-      </View>
+    <Pressable onPress={() => onOpen(team)} onPressIn={() => spring(1)} onPressOut={() => spring(0)}>
+      <Animated.View
+        style={[
+          styles.card,
+          team.left && styles.cardLeft,
+          { transform: [{ scale: press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.98] }) }] },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <View style={[styles.teamDot, { backgroundColor: team.color }]} />
+          <Text style={styles.teamName} numberOfLines={1}>{team.name}</Text>
+          {team.pinned && <PinIcon size={14} color="#EE4323" />}
+          {team.muted && <BellOffIcon size={14} color="rgba(0,0,0,0.45)" />}
+          <View style={styles.flex} />
+          <ActionMenu items={menuItems} style={styles.moreButton} accessibilityLabel={`${team.name} options`} />
+        </View>
 
-      <View style={styles.teamMembers}>
-        <View style={styles.avatarsContainer}>
-          {item.members.map((member, index) => (
-            <Avatar
-              key={index}
-              name={member.name}
-              color={member.color}
-              style={index > 0 ? styles.avatarOverlap : null}
-            />
+        <View style={styles.avatarsRow}>
+          {members.slice(0, 4).map((m, i) => (
+            <View key={m.id} style={[styles.avatarWrap, i > 0 && styles.avatarOverlap]}>
+              <PersonAvatar person={m} size={32} showStatus={false} />
+            </View>
           ))}
-          <View style={[styles.avatar, styles.avatarMore, styles.avatarOverlap]}>
-            <Text style={styles.avatarMoreText}>{item.extra.replace(' others', '')}</Text>
+          {total > 4 && (
+            <View style={[styles.avatarMore, styles.avatarOverlap]}>
+              <Text style={styles.avatarMoreText}>+{total - 4}</Text>
+            </View>
+          )}
+          <View style={styles.flex} />
+          <View style={[styles.openPill, { backgroundColor: team.color + '18' }]}>
+            <Text style={[styles.openPillText, { color: team.color }]}>{team.stats.open} open</Text>
           </View>
         </View>
-        <Text style={styles.membersText}>{membersText}</Text>
-      </View>
-    </TouchableOpacity>
+        <Text style={styles.membersText} numberOfLines={1}>
+          {team.left ? 'You left this team' : `${names} and ${total - Math.min(3, members.length)} others`}
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 };
 
 export default function TeamsScreen() {
+  const insets = useSafeAreaInsets();
+  const { teams, setTeams, openTeam, showToast, presentSheet } = useTicketDetail();
+  const { menuFor, dialogs } = useTeamActions();
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const sorted = [...teams].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  const headerH = Math.max(insets.top, 24) + 76;
+
+  const createTeam = ({ name, color, memberIds }) => {
+    const team = {
+      id: `t${Date.now()}`,
+      name,
+      color,
+      description: 'New team',
+      channels: ['Email'],
+      members: memberIds.map((id) => ({ id, load: 0 })),
+      extraMembers: 0,
+      stats: { open: 0, response: '—', csat: '—', responseDelta: null, csatDelta: null },
+    };
+    LayoutAnimation.configureNext(LayoutAnimation.create(260, 'easeInEaseOut', 'opacity'));
+    setTeams((list) => [team, ...list]);
+    showToast({ text: `${name} created`, actionLabel: 'View', onAction: () => openTeam(team) });
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Teams</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <PlusIcon />
-        </TouchableOpacity>
-      </View>
-
-      {/* Teams List */}
-      <FlatList
-        data={teamsData}
+      <Animated.FlatList
+        data={sorted}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TeamItem item={item} />}
-        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <TeamCard
+            team={item}
+            onOpen={openTeam}
+            menuItems={() => menuFor(item, { onOpen: openTeam, onAddMember: (t) => openTeam({ ...t, addMember: true }) })}
+          />
+        )}
+        contentContainerStyle={[styles.listContent, { paddingTop: headerH + 8, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
       />
+
+      {/* Blurred header: content scrolls underneath, edge to edge */}
+      <BlurHeader height={headerH} scrollY={scrollY}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 17 }]}>
+          <Text style={styles.headerTitle}>Teams</Text>
+          <TouchableOpacity style={styles.addButton} onPress={() => presentSheet(<CreateTeamSheet onCreate={createTeam} />)} accessibilityLabel="Create team" hitSlop={10}>
+            <PlusIcon />
+          </TouchableOpacity>
+        </View>
+      </BlurHeader>
+
+      {dialogs}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  flex: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: STATUS_BAR_HEIGHT + 17,
     paddingBottom: 8,
   },
-  headerTitle: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#000000',
-    lineHeight: 43,
-  },
-  addButton: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  teamItem: {
+  headerTitle: { fontSize: 36, fontWeight: '700', color: '#000000', lineHeight: 43 },
+  addButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  listContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  card: {
     borderWidth: 1,
-    borderColor: '#D6D6D6',
-    borderRadius: 8,
+    borderColor: '#E2E2E2',
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     backgroundColor: '#FFFFFF',
   },
-  teamHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  teamName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000000',
-  },
-  moreButton: {
-    padding: 4,
-  },
-  teamMembers: {
-    gap: 8,
-  },
-  avatarsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+  cardLeft: { opacity: 0.55 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  teamDot: { width: 10, height: 10, borderRadius: 5 },
+  teamName: { fontSize: 20, fontWeight: '700', color: '#000000', flexShrink: 1 },
+  moreButton: { padding: 4 },
+  avatarsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  avatarWrap: { borderWidth: 2, borderColor: '#FFFFFF', borderRadius: 18 },
+  avatarOverlap: { marginLeft: -10 },
+  avatarMore: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFEFEF',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarOverlap: {
-    marginLeft: -8,
-  },
-  avatarText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  avatarMore: {
-    backgroundColor: '#E8E8E8',
-  },
-  avatarMoreText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#666666',
-  },
-  membersText: {
-    fontSize: 12,
-    color: 'rgba(0, 0, 0, 0.6)',
-  },
+  avatarMoreText: { fontSize: 11, fontWeight: '700', color: '#666666' },
+  openPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  openPillText: { fontSize: 12, fontWeight: '700' },
+  membersText: { fontSize: 13, color: 'rgba(0, 0, 0, 0.6)' },
 });

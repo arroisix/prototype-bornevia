@@ -10,10 +10,20 @@ import {
   StatusBar,
   Animated,
   Pressable,
+  LayoutAnimation,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import ChannelIcon from '../components/ChannelIcons';
 import { useTicketDetail } from '../components/TicketDetailContext';
+import ActionMenu from '../components/ActionMenu';
+import BlurHeader from '../components/BlurHeader';
+import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PopIn } from '../components/chat/Composer';
+import { CheckAllIcon, DownloadIcon, RefreshIcon } from '../components/MenuIcons';
+
+const CHANNEL_FILTERS = ['All channels', 'Email', 'WhatsApp', 'Facebook', 'FB Messenger', 'Instagram', 'Twitter'];
+const SORTS = ['Newest first', 'Oldest first', 'Name A–Z'];
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? 40 : 44;
 const HEADER_BASE_HEIGHT = 68; // Title area height
@@ -24,14 +34,6 @@ const SearchIcon = ({ size = 18 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={11} cy={11} r={7} stroke="rgba(46, 46, 46, 0.5)" strokeWidth={2} />
     <Path d="M16 16L20 20" stroke="rgba(46, 46, 46, 0.5)" strokeWidth={2} strokeLinecap="round" />
-  </Svg>
-);
-
-const MoreIcon = () => (
-  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-    <Circle cx={5} cy={12} r={2} fill="#000000" />
-    <Circle cx={12} cy={12} r={2} fill="#000000" />
-    <Circle cx={19} cy={12} r={2} fill="#000000" />
   </Svg>
 );
 
@@ -117,13 +119,55 @@ const TicketItem = ({ item, onPress, highlight }) => {
 
 export default function TicketsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { openTicket, openNewTicket, tickets, highlightId } = useTicketDetail();
+  const { openTicket, openNewTicket, tickets, setTickets, highlightId, showToast } = useTicketDetail();
+  const [sort, setSort] = useState(SORTS[0]);
+  const [channelFilter, setChannelFilter] = useState(CHANNEL_FILTERS[0]);
+  const listRef = useRef(null);
+  const insets = useSafeAreaInsets();
+  const barSpace = TAB_BAR_HEIGHT + insets.bottom;
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const filteredTickets = tickets.filter(ticket =>
-    ticket.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ticket.message.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTickets = tickets
+    .filter(
+      (ticket) =>
+        (channelFilter === CHANNEL_FILTERS[0] || ticket.channel === channelFilter) &&
+        (ticket.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          ticket.message.toLowerCase().includes(searchQuery.toLowerCase())),
+    )
+    .sort((a, b) => {
+      if (sort === 'Oldest first') return Number(a.id) - Number(b.id);
+      if (sort === 'Name A–Z') return a.username.replace('@', '').localeCompare(b.username.replace('@', ''));
+      return Number(b.id) - Number(a.id);
+    });
+
+  const relayout = () => LayoutAnimation.configureNext(LayoutAnimation.create(240, 'easeInEaseOut', 'opacity'));
+
+  const menuItems = () => [
+    { section: 'Sort by' },
+    ...SORTS.map((s) => ({ key: s, label: s, checked: sort === s, onPress: () => { relayout(); setSort(s); } })),
+    { section: 'Channel' },
+    ...CHANNEL_FILTERS.map((c) => ({ key: c, label: c, checked: channelFilter === c, onPress: () => { relayout(); setChannelFilter(c); } })),
+    { section: 'Actions' },
+    {
+      key: 'read',
+      label: 'Mark all as read',
+      icon: CheckAllIcon,
+      onPress: () => {
+        setTickets((list) => list.map((t) => ({ ...t, isNew: false })));
+        showToast(`${tickets.length} tickets marked as read`);
+      },
+    },
+    {
+      key: 'refresh',
+      label: 'Refresh',
+      icon: RefreshIcon,
+      onPress: () => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        showToast({ text: 'Inbox is up to date', tone: 'info' });
+      },
+    },
+    { key: 'export', label: 'Export as CSV', icon: DownloadIcon, onPress: () => showToast({ text: `Exported ${filteredTickets.length} tickets to Downloads`, actionLabel: 'Open', onAction: () => {} }) },
+  ];
 
   // Search bar collapses (height shrinks) when scrolling
   const searchBarHeight = scrollY.interpolate({
@@ -162,10 +206,11 @@ export default function TicketsScreen() {
 
       {/* Tickets List */}
       <Animated.FlatList
+        ref={listRef}
         data={filteredTickets}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <TicketItem item={item} onPress={openTicket} highlight={item.id === highlightId} />}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: barSpace + 90 }]}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -174,8 +219,8 @@ export default function TicketsScreen() {
         scrollEventThrottle={16}
       />
 
-      {/* Fixed Header - solid white background */}
-      <View style={styles.headerWrapper}>
+      {/* Fixed header — frosted blur, edge to edge under the status bar */}
+      <BlurHeader style={styles.headerWrapper}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Tickets</Text>
           <View style={styles.headerRight}>
@@ -184,9 +229,7 @@ export default function TicketsScreen() {
                 <SearchIcon size={24} />
               </TouchableOpacity>
             </Animated.View>
-            <TouchableOpacity>
-              <MoreIcon />
-            </TouchableOpacity>
+            <ActionMenu items={menuItems} accessibilityLabel="Ticket list options" />
           </View>
         </View>
 
@@ -203,12 +246,30 @@ export default function TicketsScreen() {
             />
           </View>
         </Animated.View>
-      </View>
+        {channelFilter !== CHANNEL_FILTERS[0] && (
+          <PopIn style={styles.filterRow}>
+            <TouchableOpacity
+              style={styles.filterChip}
+              onPress={() => {
+                relayout();
+                setChannelFilter(CHANNEL_FILTERS[0]);
+              }}
+            >
+              <ChannelIcon channel={channelFilter} size={14} />
+              <Text style={styles.filterChipText}>
+                {channelFilter} · {filteredTickets.length}
+              </Text>
+              <Text style={styles.filterChipX}>✕</Text>
+            </TouchableOpacity>
+          </PopIn>
+        )}
+      </BlurHeader>
 
       {/* New Ticket Button */}
       <Animated.View
         style={[
           styles.newTicketButtonContainer,
+          { bottom: barSpace + 14 },
           { transform: [{ translateY: buttonTranslateY }], opacity: buttonOpacity }
         ]}
       >
@@ -231,10 +292,20 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
-    backgroundColor: '#FFFFFF',
     paddingTop: STATUS_BAR_HEIGHT,
   },
+  filterRow: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 8 },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FDECE8',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterChipText: { fontSize: 12, fontWeight: '700', color: '#EE4323' },
+  filterChipX: { fontSize: 11, fontWeight: '800', color: '#EE4323' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

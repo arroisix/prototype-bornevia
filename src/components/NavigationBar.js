@@ -3,6 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import { ListIcon, InboxIcon, GraphIcon, UserIcon } from './NavIcons';
+import BlurHeader from './BlurHeader';
+
+// Height of the floating bar above the system inset; screens pad their content by this.
+export const TAB_BAR_HEIGHT = 92;
 
 
 // Import Lottie animation files
@@ -96,7 +100,8 @@ export default function NavigationBar({ state, descriptors, navigation }) {
   };
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <BlurHeader position="bottom" style={{ paddingBottom: insets.bottom }}>
+    <View style={styles.container}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -155,20 +160,13 @@ export default function NavigationBar({ state, descriptors, navigation }) {
         </View>
       </Modal>
     </View>
+    </BlurHeader>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
   },
   navItem: {
     flex: 1,

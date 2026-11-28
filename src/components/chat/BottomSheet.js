@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo
 import { Animated, Dimensions, Keyboard, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useKeyboardInset from './useKeyboardInset';
+import { usePredictiveBack } from '../predictiveBack';
 
 const SPRING = { tension: 68, friction: 12, useNativeDriver: true };
 
@@ -63,6 +64,12 @@ const BottomSheet = forwardRef(function BottomSheet(
   );
 
   useImperativeHandle(ref, () => ({ close, setExpanded }), [close, setExpanded]);
+
+  // Predictive back: the sheet follows the back swipe downwards, springs back on cancel.
+  usePredictiveBack(true, {
+    onProgress: (p) => translateY.setValue(currentOffset.current + p * 160),
+    onCancel: () => snapTo(currentOffset.current),
+  });
 
   // Open animation.
   useEffect(() => {

@@ -21,6 +21,7 @@ import useKeyboardInset from '../components/chat/useKeyboardInset';
 import { PopIn } from '../components/chat/Composer';
 import { CloseIcon, CloseSmallIcon, CheckSmallIcon, ImageIcon, PlayIcon } from '../components/chat/ChatIcons';
 import { BRAND, BRAND_SOFT } from '../theme/brand';
+import { usePredictiveBack } from '../components/predictiveBack';
 
 const CHANNELS = ['Email', 'WhatsApp', 'Facebook', 'FB Messenger', 'Instagram', 'Twitter'];
 const PRIORITIES = [
@@ -239,6 +240,9 @@ export default function NewTicketScreen({ progress, tickets, nextNumber, onClose
   const [showDiscard, setShowDiscard] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const mediaRef = useRef(null);
+
+  // Back only dismisses the discard dialog: keep the page still during the gesture.
+  usePredictiveBack(showDiscard, {});
 
   const customerName = selectedCustomer ? selectedCustomer.name : customer.trim();
   const dirty = !!(customerName || subject || description || attachments.length);

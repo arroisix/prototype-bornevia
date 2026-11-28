@@ -44,6 +44,9 @@ dependencies {
     implementation project(':react-native-safe-area-context')
     implementation project(':react-native-screens')
     implementation project(':react-native-svg')
+    implementation project(':react-native-community_blur')
+    // 1.8+ adds predictive back progress (BackEventCompat / handleOnBackProgressed)
+    implementation("androidx.activity:activity:1.8.2")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

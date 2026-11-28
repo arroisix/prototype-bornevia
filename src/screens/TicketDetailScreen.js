@@ -22,6 +22,7 @@ import AIDraftSheet from '../components/chat/AIDraftSheet';
 import MediaPickerSheet from '../components/chat/MediaPickerSheet';
 import TemplatesSheet from '../components/chat/TemplatesSheet';
 import useKeyboardInset from '../components/chat/useKeyboardInset';
+import { usePredictiveBack } from '../components/predictiveBack';
 
 const MAX_UPLOAD_MB = 10;
 const sizeInMB = (size) => (size.includes('MB') ? parseFloat(size) : parseFloat(size) / 1024);
@@ -386,6 +387,15 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
   const chatTranslateX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -PANEL_WIDTH * 0.35] });
   const scrimOpacity = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.25] });
   const panelTranslateX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_WIDTH, 0] });
+
+  // Back only closes the + menu: keep the page still during the gesture.
+  usePredictiveBack(menuOpen, {});
+
+  // Predictive back while the info panel is open: the panel slides out with the gesture.
+  usePredictiveBack(panelOpen, {
+    onProgress: (p) => panelAnim.setValue(1 - p * 0.4),
+    onCancel: () => Animated.spring(panelAnim, { toValue: 1, tension: 70, friction: 13, useNativeDriver: true }).start(),
+  });
 
   // Swipe right on the panel (or the dimmed chat) to close it; the panel follows the finger.
   const panelPan = useMemo(

@@ -14,6 +14,15 @@ public class NavigationBarModule extends ReactContextBaseJavaModule {
         return "NavigationBarModule";
     }
 
+    /** JS enables this while an in-app screen/sheet can handle back (drives predictive back). */
+    @ReactMethod
+    public void setPredictiveBackEnabled(boolean enabled) {
+        MainActivity activity = MainActivity.getInstance();
+        if (activity != null) {
+            activity.setPredictiveBackEnabled(enabled);
+        }
+    }
+
     @ReactMethod
     public void setLightNavigationBar(boolean isLight) {
         MainActivity activity = MainActivity.getInstance();
