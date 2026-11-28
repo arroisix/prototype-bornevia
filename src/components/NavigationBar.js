@@ -87,27 +87,28 @@ const NavIcon = ({ item, focused, onPress, onLongPress }) => {
   );
 };
 
-export default function NavigationBar({ state, descriptors, navigation }) {
+/**
+ * Bottom navigation for the swipeable tab pager.
+ * - `position`: Animated value in page units (0…n-1) that follows the pager while swiping,
+ *   so the red pill tracks the finger and stretches slightly mid-transition.
+ * - `index`: settled tab (drives the active icon/label); `onTabPress(i)` scrolls the pager.
+ */
+export default function NavigationBar({ routes, index, position, onTabPress }) {
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedJson, setSelectedJson] = useState(null);
   const [selectedName, setSelectedName] = useState('');
 
-  // One red pill shared by all tabs: it slides (with a little stretch) to the active tab.
   const [barWidth, setBarWidth] = useState(0);
-  const pillX = useRef(new Animated.Value(state.index)).current;
-  const pillStretch = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(pillX, { toValue: state.index, tension: 140, friction: 14, useNativeDriver: true }),
-      Animated.sequence([
-        Animated.timing(pillStretch, { toValue: 1, duration: 120, useNativeDriver: true }),
-        Animated.spring(pillStretch, { toValue: 0, tension: 160, friction: 10, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }, [state.index, pillX, pillStretch]);
-  const tabW = barWidth / Math.max(state.routes.length, 1);
-
+  const tabW = barWidth / Math.max(routes.length, 1);
+  const pages = routes.map((_, i) => i);
+  // 1 at each tab, peaks halfway between two tabs → a little stretch while moving.
+  const halfSteps = routes.flatMap((_, i) => (i < routes.length - 1 ? [i, i + 0.5] : [i]));
+  const stretch = position.interpolate({
+    inputRange: halfSteps,
+    outputRange: halfSteps.map((v) => (v % 1 ? 1 : 0)),
+    extrapolate: 'clamp',
+  });
 
   const handleShowJson = (name) => {
     setSelectedName(name);
@@ -127,46 +128,28 @@ export default function NavigationBar({ state, descriptors, navigation }) {
               left: (tabW - PILL_W) / 2,
               transform: [
                 {
-                  translateX: pillX.interpolate({
-                    inputRange: state.routes.map((_, i) => i),
-                    outputRange: state.routes.map((_, i) => i * tabW),
+                  translateX: position.interpolate({
+                    inputRange: pages,
+                    outputRange: pages.map((i) => i * tabW),
+                    extrapolate: 'clamp',
                   }),
                 },
-                { scaleX: pillStretch.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) },
-                { scaleY: pillStretch.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) },
+                { scaleX: stretch.interpolate({ inputRange: [0, 1], outputRange: [1, 1.25] }) },
+                { scaleY: stretch.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) },
               ],
             },
           ]}
         />
       )}
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const isFocused = state.index === index;
-        const item = navItems.find(nav => nav.name === route.name);
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        const onLongPress = () => {
-          handleShowJson(route.name);
-        };
-
+      {routes.map((name, i) => {
+        const item = navItems.find((nav) => nav.name === name);
         return (
           <NavIcon
-            key={route.key}
+            key={name}
             item={item}
-            focused={isFocused}
-            onPress={onPress}
-            onLongPress={onLongPress}
+            focused={index === i}
+            onPress={() => onTabPress(i)}
+            onLongPress={() => handleShowJson(name)}
           />
         );
       })}

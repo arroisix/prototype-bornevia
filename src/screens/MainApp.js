@@ -1,8 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import TicketsScreen from './TicketsScreen';
 import TeamsScreen from './TeamsScreen';
@@ -19,7 +17,7 @@ import NavigationBar from '../components/NavigationBar';
 import { TicketDetailContext } from '../components/TicketDetailContext';
 import { PredictiveBackView } from '../components/predictiveBack';
 
-const Tab = createBottomTabNavigator();
+const TABS = ['Tickets', 'Teams', 'Stats', 'Profile'];
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const TOAST_TONES = { success: '#3DDC84', info: '#58A6FF', danger: '#FF6B5E' };
@@ -71,14 +69,67 @@ const Toast = ({ toast, onHide }) => {
   );
 };
 
-function MainAppContent({ onLogout }) {
+/**
+ * Tabs as a horizontal pager: swipe left/right between Tickets · Teams · Stats · Profile,
+ * or tap the bottom navigation. The nav's red pill follows the scroll position live.
+ */
+function SwipeTabs({ onLogout }) {
+  const { width } = useWindowDimensions();
+  const scrollRef = useRef(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
+  const position = useMemo(() => Animated.divide(scrollX, width), [scrollX, width]);
+
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+        useNativeDriver: true,
+        listener: (e) => {
+          const i = Math.round(e.nativeEvent.contentOffset.x / width);
+          if (i !== indexRef.current && i >= 0 && i < TABS.length) {
+            indexRef.current = i;
+            setIndex(i);
+          }
+        },
+      }),
+    [scrollX, width],
+  );
+
+  const goTo = useCallback(
+    (i) => scrollRef.current?.scrollTo({ x: i * width, animated: true }),
+    [width],
+  );
+
+  const pages = [
+    <TicketsScreen key="Tickets" />,
+    <TeamsScreen key="Teams" />,
+    <StatsScreen key="Stats" />,
+    <ProfileScreen key="Profile" onLogout={onLogout} />,
+  ];
+
   return (
-    <Tab.Navigator tabBar={(props) => <NavigationBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="Tickets" component={TicketsScreen} />
-      <Tab.Screen name="Teams" component={TeamsScreen} />
-      <Tab.Screen name="Stats" component={StatsScreen} />
-      <Tab.Screen name="Profile" children={() => <ProfileScreen onLogout={onLogout} />} />
-    </Tab.Navigator>
+    <View style={styles.flex}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        style={styles.flex}
+      >
+        {pages.map((page) => (
+          <View key={page.key} style={{ width, flex: 1 }}>
+            {page}
+          </View>
+        ))}
+      </Animated.ScrollView>
+      <NavigationBar routes={TABS} index={index} position={position} onTabPress={goTo} />
+    </View>
   );
 }
 
@@ -212,9 +263,7 @@ export default function MainApp({ onLogout }) {
     <TicketDetailContext.Provider value={contextValue}>
       <View style={styles.root}>
         <Animated.View style={[styles.flex, { transform: [{ translateX: baseTranslateX }, { scale: baseScale }] }]}>
-          <NavigationContainer>
-            <MainAppContent onLogout={onLogout} />
-          </NavigationContainer>
+          <SwipeTabs onLogout={onLogout} />
         </Animated.View>
 
         <PushLayer overlay={teamOverlay}>
