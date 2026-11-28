@@ -1,52 +1,38 @@
 import React from 'react';
-import { Animated, Platform, StyleSheet, View } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { Animated, StyleSheet, View } from 'react-native';
+import ProgressiveBlur from './ProgressiveBlur';
 
 /**
- * Edge-to-edge frosted bar. Content scrolls underneath (including under the status bar
- * or navigation bar) and is blurred, like iOS / Material translucent app bars.
+ * Edge-to-edge bar with a progressive blur behind it: content scrolls underneath
+ * (under the status bar / navigation bar too) and is blurred most at the screen edge,
+ * fading smoothly to sharp past the bar — no hard divider line.
  *
  * - `position="top"` (default) or `"bottom"`.
- * - `scrollY` (optional Animated.Value) fades in the hairline divider once content
- *   starts scrolling under the bar.
+ * - `fade`: how far (px) the blur keeps fading beyond the bar's own edge.
+ * - `scrollY` (optional): the blur fades in once content starts scrolling underneath.
  */
-export default function BlurHeader({ height, children, position = 'top', scrollY, style, tint = 'light' }) {
+export default function BlurHeader({ height, children, position = 'top', scrollY, style, fade = 28 }) {
   const isTop = position === 'top';
-  const divider = scrollY
-    ? scrollY.interpolate({ inputRange: [0, 24], outputRange: [0, 1], extrapolate: 'clamp' })
+  const blurOpacity = scrollY
+    ? scrollY.interpolate({ inputRange: [0, 20], outputRange: [0.35, 1], extrapolate: 'clamp' })
     : 1;
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={[styles.bar, isTop ? styles.top : styles.bottom, height != null && { height }, style]}
-    >
-      {Platform.OS === 'web' ? (
-        <View style={[StyleSheet.absoluteFill, styles.webFallback]} />
-      ) : (
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          blurType={tint}
-          blurAmount={18}
-          overlayColor="rgba(255,255,255,0.72)"
-          reducedTransparencyFallbackColor="#FFFFFF"
-        />
-      )}
+    <View pointerEvents="box-none" style={[styles.bar, isTop ? styles.top : styles.bottom, height != null && { height }, style]}>
       <Animated.View
         pointerEvents="none"
-        style={[styles.divider, isTop ? styles.dividerBottom : styles.dividerTop, { opacity: divider }]}
-      />
+        style={[styles.blurArea, isTop ? { top: 0, bottom: -fade } : { bottom: 0, top: -fade }, { opacity: blurOpacity }]}
+      >
+        <ProgressiveBlur position={position} />
+      </Animated.View>
       {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { position: 'absolute', left: 0, right: 0, overflow: 'hidden' },
+  bar: { position: 'absolute', left: 0, right: 0, overflow: 'visible' },
   top: { top: 0 },
   bottom: { bottom: 0 },
-  webFallback: { backgroundColor: 'rgba(255,255,255,0.82)' },
-  divider: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(0,0,0,0.12)' },
-  dividerBottom: { bottom: 0 },
-  dividerTop: { top: 0 },
+  blurArea: { position: 'absolute', left: 0, right: 0 },
 });
