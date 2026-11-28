@@ -9,6 +9,7 @@ import { useTicketDetail } from '../components/TicketDetailContext';
 import { BellOffIcon, PinIcon } from '../components/MenuIcons';
 import { personById } from '../data/teams';
 import BlurHeader from '../components/BlurHeader';
+import useLargeTitle from '../components/useLargeTitle';
 import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 
@@ -77,6 +78,7 @@ export default function TeamsScreen() {
   const { teams, setTeams, openTeam, showToast, presentSheet } = useTicketDetail();
   const { menuFor, dialogs } = useTeamActions();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const largeTitle = useLargeTitle(scrollY);
 
   const sorted = [...teams].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   const headerH = Math.max(insets.top, 24) + 76;
@@ -99,7 +101,7 @@ export default function TeamsScreen() {
 
   return (
     <View style={styles.container}>
-      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom + 16}>
+      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom} bottomFlat>
       <Animated.FlatList
         data={sorted}
         keyExtractor={(item) => item.id}
@@ -112,19 +114,19 @@ export default function TeamsScreen() {
         )}
         contentContainerStyle={[styles.listContent, { paddingTop: headerH + 8, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
         scrollEventThrottle={16}
       />
       </ProgressiveBlurContainer>
 
       {/* Blurred header: content scrolls underneath, edge to edge */}
-      <BlurHeader height={headerH} scrollY={scrollY}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) + 17 }]}>
-          <Text style={styles.headerTitle}>Teams</Text>
+      <BlurHeader scrollY={scrollY}>
+        <Animated.View style={[styles.header, { paddingTop: largeTitle.padTop(Math.max(insets.top, 24)) }]}>
+          <Animated.Text style={[styles.headerTitle, largeTitle.titleStyle]}>Teams</Animated.Text>
           <TouchableOpacity style={styles.addButton} onPress={() => presentSheet(<CreateTeamSheet onCreate={createTeam} />)} accessibilityLabel="Create team" hitSlop={10}>
             <PlusIcon />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </BlurHeader>
 
       {dialogs}

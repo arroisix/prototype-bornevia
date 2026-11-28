@@ -30,13 +30,23 @@ public class ProgressiveBlurView extends ReactViewGroup {
           + "uniform float topH;\n"
           + "uniform float bottomH;\n"
           + "uniform float maxR;\n"
+          + "uniform float flatR;\n"
+          + "uniform float topFlat;\n"
+          + "uniform float bottomFlat;\n"
           + "uniform float2 dir;\n"
+          // Flat edge = uniform frosted blur under a bar; otherwise smoothstep ramp to the edge.
           + "float radiusAt(float y) {\n"
-          + "  float t = 0.0;\n"
-          + "  if (topH > 0.0 && y < topH) { t = 1.0 - y / topH; }\n"
-          + "  else if (bottomH > 0.0 && y > height - bottomH) { t = (y - (height - bottomH)) / bottomH; }\n"
-          + "  t = clamp(t, 0.0, 1.0);\n"
-          + "  return maxR * t * t * (3.0 - 2.0 * t);\n" // smoothstep easing
+          + "  if (topH > 0.0 && y < topH) {\n"
+          + "    if (topFlat > 0.5) { return flatR; }\n"
+          + "    float t = clamp(1.0 - y / topH, 0.0, 1.0);\n"
+          + "    return maxR * t * t * (3.0 - 2.0 * t);\n"
+          + "  }\n"
+          + "  if (bottomH > 0.0 && y > height - bottomH) {\n"
+          + "    if (bottomFlat > 0.5) { return flatR; }\n"
+          + "    float t = clamp((y - (height - bottomH)) / bottomH, 0.0, 1.0);\n"
+          + "    return maxR * t * t * (3.0 - 2.0 * t);\n"
+          + "  }\n"
+          + "  return 0.0;\n"
           + "}\n"
           + "half4 main(float2 p) {\n"
           + "  float r = radiusAt(p.y);\n"
@@ -57,6 +67,9 @@ public class ProgressiveBlurView extends ReactViewGroup {
   private float topDp = 0f;
   private float bottomDp = 0f;
   private float radiusDp = 14f;
+  private float flatRadiusDp = 16f;
+  private boolean topFlat = false;
+  private boolean bottomFlat = false;
   private boolean failed = false;
 
   public ProgressiveBlurView(Context context) {
@@ -75,6 +88,21 @@ public class ProgressiveBlurView extends ReactViewGroup {
 
   public void setMaxRadius(float dp) {
     radiusDp = dp;
+    updateEffect();
+  }
+
+  public void setFlatRadius(float dp) {
+    flatRadiusDp = dp;
+    updateEffect();
+  }
+
+  public void setTopFlat(boolean flat) {
+    topFlat = flat;
+    updateEffect();
+  }
+
+  public void setBottomFlat(boolean flat) {
+    bottomFlat = flat;
     updateEffect();
   }
 
@@ -119,6 +147,9 @@ public class ProgressiveBlurView extends ReactViewGroup {
     shader.setFloatUniform("topH", topDp * density);
     shader.setFloatUniform("bottomH", bottomDp * density);
     shader.setFloatUniform("maxR", radiusDp * density);
+    shader.setFloatUniform("flatR", flatRadiusDp * density);
+    shader.setFloatUniform("topFlat", topFlat ? 1f : 0f);
+    shader.setFloatUniform("bottomFlat", bottomFlat ? 1f : 0f);
     shader.setFloatUniform("dir", dx, dy);
     return shader;
   }

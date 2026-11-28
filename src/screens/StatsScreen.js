@@ -13,6 +13,7 @@ import Svg, { Path, Defs, LinearGradient, Stop, Rect, Line } from 'react-native-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ActionMenu from '../components/ActionMenu';
 import BlurHeader from '../components/BlurHeader';
+import useLargeTitle from '../components/useLargeTitle';
 import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 import { useTicketDetail } from '../components/TicketDetailContext';
 import { PopIn } from '../components/chat/Composer';
@@ -203,6 +204,9 @@ export default function StatsScreen() {
   const open = (stat) => openReport({ ...stat, period: selectedPeriod, key: stat.key });
   const [chartVisible, setChartVisible] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const largeTitle = useLargeTitle(scrollY);
+  // Measure the expanded header once; it shrinks while scrolling and the content inset must not jump.
+  const headerMeasured = useRef(false);
   const chartYPosition = useRef(0);
 
   // Animated values
@@ -237,10 +241,17 @@ export default function StatsScreen() {
 
       {/* Header — frosted blur, content scrolls underneath edge to edge */}
       <BlurHeader scrollY={scrollY} style={{ zIndex: 5 }}>
-      <View style={styles.header} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
+      <Animated.View
+        style={[styles.header, { paddingTop: largeTitle.padTop(STATUS_BAR_HEIGHT) }]}
+        onLayout={(e) => {
+          if (headerMeasured.current) return;
+          headerMeasured.current = true;
+          setHeaderH(e.nativeEvent.layout.height);
+        }}
+      >
         <View style={styles.headerLeft}>
           <View style={styles.titleRow}>
-            <Text style={styles.headerTitle}>Stats</Text>
+            <Animated.Text style={[styles.headerTitle, largeTitle.titleStyle]}>Stats</Animated.Text>
             {/* Collapsed period selector */}
             <Animated.View style={[styles.collapsedPeriod, { opacity: collapsedPeriodOpacity }]}>
               <ActionMenu items={periodItems} style={styles.periodSelectorSmall} accessibilityLabel="Change period">
@@ -250,7 +261,13 @@ export default function StatsScreen() {
             </Animated.View>
           </View>
           {/* Full period selector */}
-          <Animated.View style={{ opacity: periodSelectorOpacity }}>
+          <Animated.View
+            style={{
+              opacity: periodSelectorOpacity,
+              overflow: 'hidden',
+              height: scrollY.interpolate({ inputRange: [0, HEADER_SCROLL_DISTANCE], outputRange: [32, 0], extrapolate: 'clamp' }),
+            }}
+          >
             <ActionMenu items={periodItems} style={styles.periodSelector} accessibilityLabel="Change period">
               <Text style={styles.periodText}>{selectedPeriod}</Text>
               <CaretDownIcon color="#419AFF" size={16} />
@@ -260,17 +277,17 @@ export default function StatsScreen() {
         <ActionMenu items={prefItems} style={styles.preferencesButton} accessibilityLabel="Report preferences">
           <PreferencesIcon />
         </ActionMenu>
-      </View>
+      </Animated.View>
       </BlurHeader>
 
-      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom + 16}>
+      <ProgressiveBlurContainer top={headerH + 20} bottom={TAB_BAR_HEIGHT + insets.bottom} bottomFlat>
       <Animated.ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingTop: headerH + 4, paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }]}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true, listener: handleScroll }
+          { useNativeDriver: false, listener: handleScroll }
         )}
         scrollEventThrottle={16}
       >

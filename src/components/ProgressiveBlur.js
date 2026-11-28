@@ -20,10 +20,37 @@ const NativeProgressiveBlur =
     ? RN.requireNativeComponent('ProgressiveBlurView')
     : null;
 
-export function ProgressiveBlurContainer({ top = 0, bottom = 0, radius = 14, style, children }) {
+// Progressive strength (toned down 5% from 14dp for readability).
+export const PROGRESSIVE_RADIUS = 13.3;
+// Uniform "frosted" blur used under the bottom navigation and the ticket header.
+export const FROSTED_RADIUS = 16;
+
+/**
+ * topFlat / bottomFlat: that edge gets a uniform frosted blur over its whole height
+ * (regular blur bar) instead of the progressive ramp.
+ */
+export function ProgressiveBlurContainer({
+  top = 0,
+  bottom = 0,
+  radius = PROGRESSIVE_RADIUS,
+  topFlat = false,
+  bottomFlat = false,
+  flatRadius = FROSTED_RADIUS,
+  style,
+  children,
+}) {
   if (NativeProgressiveBlur) {
     return (
-      <NativeProgressiveBlur style={[styles.fill, style]} topHeight={top} bottomHeight={bottom} maxRadius={radius} collapsable={false}>
+      <NativeProgressiveBlur
+        style={[styles.fill, style]}
+        topHeight={top}
+        bottomHeight={bottom}
+        maxRadius={radius}
+        topFlat={topFlat}
+        bottomFlat={bottomFlat}
+        flatRadius={flatRadius}
+        collapsable={false}
+      >
         {children}
       </NativeProgressiveBlur>
     );
@@ -33,16 +60,24 @@ export function ProgressiveBlurContainer({ top = 0, bottom = 0, radius = 14, sty
     return (
       <View style={[styles.fill, style]}>
         {children}
-        <WebBands edge="top" size={top} radius={radius} />
-        <WebBands edge="bottom" size={bottom} radius={radius} />
+        <WebBands edge="top" size={top} radius={topFlat ? flatRadius : radius} flat={topFlat} />
+        <WebBands edge="bottom" size={bottom} radius={bottomFlat ? flatRadius : radius} flat={bottomFlat} />
       </View>
     );
   }
   return <View style={[styles.fill, style]}>{children}</View>;
 }
 
-const WebBands = ({ edge, size, radius }) => {
+const WebBands = ({ edge, size, radius, flat }) => {
   if (!size) return null;
+  if (flat) {
+    return (
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', left: 0, right: 0, [edge]: 0, height: size, backdropFilter: `blur(${radius * 0.6}px)` }}
+      />
+    );
+  }
   const steps = 8;
   return Array.from({ length: steps }, (_, i) => {
     const t = (steps - i) / steps; // 1 → near edge

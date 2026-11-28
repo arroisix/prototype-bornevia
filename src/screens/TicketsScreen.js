@@ -17,6 +17,7 @@ import ChannelIcon from '../components/ChannelIcons';
 import { useTicketDetail } from '../components/TicketDetailContext';
 import ActionMenu from '../components/ActionMenu';
 import BlurHeader from '../components/BlurHeader';
+import useLargeTitle from '../components/useLargeTitle';
 import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PopIn } from '../components/chat/Composer';
@@ -127,6 +128,7 @@ export default function TicketsScreen() {
   const insets = useSafeAreaInsets();
   const barSpace = TAB_BAR_HEIGHT + insets.bottom;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const largeTitle = useLargeTitle(scrollY);
 
   const filteredTickets = tickets
     .filter(
@@ -206,7 +208,7 @@ export default function TicketsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* Tickets List */}
-      <ProgressiveBlurContainer top={TOTAL_HEADER_HEIGHT + 8} bottom={barSpace + 16}>
+      <ProgressiveBlurContainer top={TOTAL_HEADER_HEIGHT + 8} bottom={barSpace} bottomFlat>
       <Animated.FlatList
         ref={listRef}
         data={filteredTickets}
@@ -224,8 +226,8 @@ export default function TicketsScreen() {
 
       {/* Fixed header — frosted blur, edge to edge under the status bar */}
       <BlurHeader style={styles.headerWrapper}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Tickets</Text>
+        <Animated.View style={[styles.header, { paddingTop: largeTitle.padTop(0) }]}>
+          <Animated.Text style={[styles.headerTitle, largeTitle.titleStyle]}>Tickets</Animated.Text>
           <View style={styles.headerRight}>
             <Animated.View style={{ opacity: searchIconOpacity, marginRight: 12 }}>
               <TouchableOpacity>
@@ -234,7 +236,7 @@ export default function TicketsScreen() {
             </Animated.View>
             <ActionMenu items={menuItems} accessibilityLabel="Ticket list options" />
           </View>
-        </View>
+        </Animated.View>
 
         {/* Search Bar - collapses on scroll */}
         <Animated.View style={[styles.searchContainer, { height: searchBarHeight, opacity: searchBarOpacity }]}>

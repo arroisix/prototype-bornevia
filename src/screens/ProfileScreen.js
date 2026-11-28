@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
-  ScrollView,
+  Animated,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BlurHeader from '../components/BlurHeader';
+import useLargeTitle from '../components/useLargeTitle';
 import { ProgressiveBlurContainer } from '../components/ProgressiveBlur';
 import { TAB_BAR_HEIGHT } from '../components/NavigationBar';
 
@@ -74,14 +75,19 @@ export default function ProfileScreen({ onLogout }) {
   const insets = useSafeAreaInsets();
   const [headerH, setHeaderH] = useState(STATUS_BAR_HEIGHT + 92);
   const barSpace = TAB_BAR_HEIGHT + insets.bottom;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const largeTitle = useLargeTitle(scrollY);
+  const headerMeasured = useRef(false);
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      <ProgressiveBlurContainer top={headerH + 12} bottom={barSpace + 16}>
-      <ScrollView
+      <ProgressiveBlurContainer top={headerH + 12} bottom={barSpace} bottomFlat>
+      <Animated.ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
         contentContainerStyle={[styles.scrollContent, { paddingTop: headerH, paddingBottom: barSpace + 40 }]}
       >
         {/* Profile Info Row */}
@@ -131,14 +137,21 @@ export default function ProfileScreen({ onLogout }) {
         >
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </Animated.ScrollView>
       </ProgressiveBlurContainer>
 
       {/* Header — floats over the content (edge to edge) */}
-      <BlurHeader>
-        <View style={styles.header} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
+      <BlurHeader scrollY={scrollY}>
+        <Animated.View
+          style={[styles.header, { paddingTop: largeTitle.padTop(STATUS_BAR_HEIGHT), paddingBottom: largeTitle.padBottom(32, 12) }]}
+          onLayout={(e) => {
+            if (headerMeasured.current) return;
+            headerMeasured.current = true;
+            setHeaderH(e.nativeEvent.layout.height);
+          }}
+        >
+          <Animated.Text style={[styles.headerTitle, largeTitle.titleStyle]}>Profile</Animated.Text>
+        </Animated.View>
       </BlurHeader>
     </View>
   );

@@ -421,7 +421,7 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
       <Animated.View style={[styles.flex, { transform: [{ translateX: chatTranslateX }] }]}>
         {/* Edge-to-edge window: lift the chat above the keyboard ourselves */}
         <View style={[styles.flex, { paddingBottom: sheet ? 0 : keyboardInset }]}>
-          <ProgressiveBlurContainer top={headerH + 12} bottom={composerH + 12}>
+          <ProgressiveBlurContainer top={headerH} topFlat bottom={composerH + 12}>
           <ScrollView
             ref={scrollRef}
             style={styles.flex}
@@ -497,8 +497,8 @@ export default function TicketDetailScreen({ ticket, progress, onClose }) {
           </BlurHeader>
         </View>
 
-        {/* Header — floats over the chat (edge to edge) */}
-        <BlurHeader>
+        {/* Header — frosted blur bar floating over the chat (edge to edge) */}
+        <BlurHeader variant="frosted">
         <View style={[styles.header, { paddingTop: topInset + 6 }]} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
           <TouchableOpacity accessibilityLabel="Back" onPress={onClose} style={styles.iconButton} hitSlop={8}>
             <BackIcon />

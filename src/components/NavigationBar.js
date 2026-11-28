@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LottieView from 'lottie-react-native';
 import { ListIcon, InboxIcon, GraphIcon, UserIcon } from './NavIcons';
@@ -7,6 +7,7 @@ import BlurHeader from './BlurHeader';
 
 // Height of the floating bar above the system inset; screens pad their content by this.
 export const TAB_BAR_HEIGHT = 92;
+const PILL_W = 64;
 
 
 // Import Lottie animation files
@@ -92,6 +93,21 @@ export default function NavigationBar({ state, descriptors, navigation }) {
   const [selectedJson, setSelectedJson] = useState(null);
   const [selectedName, setSelectedName] = useState('');
 
+  // One red pill shared by all tabs: it slides (with a little stretch) to the active tab.
+  const [barWidth, setBarWidth] = useState(0);
+  const pillX = useRef(new Animated.Value(state.index)).current;
+  const pillStretch = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(pillX, { toValue: state.index, tension: 140, friction: 14, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.timing(pillStretch, { toValue: 1, duration: 120, useNativeDriver: true }),
+        Animated.spring(pillStretch, { toValue: 0, tension: 160, friction: 10, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, [state.index, pillX, pillStretch]);
+  const tabW = barWidth / Math.max(state.routes.length, 1);
+
 
   const handleShowJson = (name) => {
     setSelectedName(name);
@@ -100,8 +116,29 @@ export default function NavigationBar({ state, descriptors, navigation }) {
   };
 
   return (
-    <BlurHeader position="bottom" style={{ paddingBottom: insets.bottom }}>
-    <View style={styles.container}>
+    <BlurHeader position="bottom" variant="frosted" style={{ paddingBottom: insets.bottom }}>
+    <View style={styles.container} onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}>
+      {barWidth > 0 && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.pill,
+            {
+              left: (tabW - PILL_W) / 2,
+              transform: [
+                {
+                  translateX: pillX.interpolate({
+                    inputRange: state.routes.map((_, i) => i),
+                    outputRange: state.routes.map((_, i) => i * tabW),
+                  }),
+                },
+                { scaleX: pillStretch.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) },
+                { scaleY: pillStretch.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) },
+              ],
+            },
+          ]}
+        />
+      )}
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -191,8 +228,15 @@ const styles = StyleSheet.create({
   iconContainerActive: {
     width: 64,
     height: 40,
-    backgroundColor: '#EE4323',
     borderRadius: 20,
+  },
+  pill: {
+    position: 'absolute',
+    top: 12,
+    width: PILL_W,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EE4323',
   },
   lottieIcon: {
     width: 28,

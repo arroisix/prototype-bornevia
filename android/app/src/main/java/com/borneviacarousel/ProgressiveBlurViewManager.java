@@ -33,6 +33,21 @@ public class ProgressiveBlurViewManager extends ReactViewManager {
     ((ProgressiveBlurView) view).setBottomHeight(value);
   }
 
+  @ReactProp(name = "flatRadius", defaultFloat = 16f)
+  public void setFlatRadius(ReactViewGroup view, float value) {
+    ((ProgressiveBlurView) view).setFlatRadius(value);
+  }
+
+  @ReactProp(name = "topFlat", defaultBoolean = false)
+  public void setTopFlat(ReactViewGroup view, boolean value) {
+    ((ProgressiveBlurView) view).setTopFlat(value);
+  }
+
+  @ReactProp(name = "bottomFlat", defaultBoolean = false)
+  public void setBottomFlat(ReactViewGroup view, boolean value) {
+    ((ProgressiveBlurView) view).setBottomFlat(value);
+  }
+
   @ReactProp(name = "maxRadius", defaultFloat = 14f)
   public void setMaxRadius(ReactViewGroup view, float value) {
     ((ProgressiveBlurView) view).setMaxRadius(value);
